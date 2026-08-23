@@ -41,6 +41,16 @@ from research_report_agent.runtime_contracts import (
 from research_report_agent.storage import Database
 from research_report_agent.worker_runtime import WorkerRuntime
 
+# A dependency that finished PARTIAL still produced usable evidence and its
+# produced_context still reaches the worker, so it unblocks its dependents the
+# same way a COMPLETED one does.
+_DEPENDENCY_SATISFIED = frozenset({TaskState.COMPLETED, TaskState.PARTIAL})
+# A dependency in one of these states has not finished yet, so its dependents
+# simply wait for a later scheduling pass. Every other state is terminal and
+# unsatisfied, which blocks them -- keeping the split exhaustive means a task
+# can never fall between the two and be silently dropped from the schedule.
+_DEPENDENCY_IN_FLIGHT = frozenset({TaskState.PENDING, TaskState.READY, TaskState.RUNNING})
+
 
 class SupervisorState(TypedDict, total=False):
     """State flowing through the LangGraph supervisor graph."""
@@ -512,10 +522,10 @@ class Orchestrator:
                 if task_states[task.task_id] not in {TaskState.PENDING, TaskState.READY}:
                     continue
                 dependency_states = [task_states[item] for item in task.dependencies]
-                if all(item is TaskState.COMPLETED for item in dependency_states):
+                if all(item in _DEPENDENCY_SATISFIED for item in dependency_states):
                     ready.append(task)
                 elif any(
-                    item in {TaskState.FAILED, TaskState.TIMEOUT, TaskState.BLOCKED}
+                    item not in _DEPENDENCY_SATISFIED and item not in _DEPENDENCY_IN_FLIGHT
                     for item in dependency_states
                 ):
                     task_states[task.task_id] = TaskState.BLOCKED
