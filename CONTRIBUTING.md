@@ -19,17 +19,34 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
+5. Install the frontend dependencies (Node 20 or newer):
+
+```bash
+cd frontend
+npm install
+```
+
+`./scripts/dev.sh` runs both services together once this is done.
+
 ## Workflow
 
 1. Create a feature branch from `main`.
 2. Make a focused change.
 3. Add or update tests.
-4. Run all quality checks locally:
+4. Run all quality checks locally. CI runs the same three jobs, so a change that
+   touches both sides has to pass both:
 
 ```bash
 ruff format --check .
 ruff check .
 pytest
+```
+
+```bash
+cd frontend
+npm run typecheck
+npm run test -- --run
+npm run build
 ```
 
 5. Push your branch.
@@ -58,6 +75,8 @@ Common types:
 ## Design changes
 
 Architecture-first changes should update `docs/spec/design.md` before implementation.
+`docs/spec/design.zh-CN.md` tracks it; update it in the same pull request when the
+architecture changes, or say in the PR that it is intentionally left behind.
 Describe:
 
 - The affected component
@@ -74,6 +93,16 @@ Describe:
 - Every loop has a termination condition.
 - Factual output is tied to source IDs.
 - New behavior has tests.
+
+Frontend specifics:
+
+- No colour literals in component CSS. Every colour comes from a token defined in
+  all three theme blocks (see design spec §24), or it will be wrong in one theme.
+- Report and source text is model-generated and may carry fetched web content.
+  Render it through JSX text nodes, never `dangerouslySetInnerHTML`, and pass any
+  URL through `safeHref` before it becomes an `href`.
+- A new `RunPhase` must be added to `PHASE_TO_STAGE`. A phase missing from that
+  map silently blanks the whole progress spine rather than erroring.
 
 ## Security
 

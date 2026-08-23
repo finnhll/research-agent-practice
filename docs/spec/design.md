@@ -1,5 +1,7 @@
 # Research & Report Agent — Design Specification
 
+*English (authoritative) · [简体中文](design.zh-CN.md)*
+
 ## Status
 
 - **Type:** Multi-agent research and reporting system

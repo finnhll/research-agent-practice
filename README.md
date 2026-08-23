@@ -1,5 +1,7 @@
 # Research & Report Agent
 
+*English · [简体中文](README.zh-CN.md)*
+
 A Python + LangGraph multi-agent system that turns a broad research question into a cited report.
 
 ## Status
@@ -167,7 +169,9 @@ The same checks run in GitHub Actions on every pull request.
 
 ## Documentation
 
-- [Design specification](docs/spec/design.md)
+- [Design specification](docs/spec/design.md) — authoritative
+- [设计规范（简体中文）](docs/spec/design.zh-CN.md)
+- [README（简体中文）](README.zh-CN.md)
 - [Repository bootstrap plan](docs/plans/2026-08-16-repository-bootstrap.md)
 - [Real LLM rebuild](docs/plans/2026-08-20-real-llm-rebuild.md)
 - [Contributing guide](CONTRIBUTING.md)
