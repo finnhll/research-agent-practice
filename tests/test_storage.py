@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -146,3 +147,63 @@ async def test_create_schema_adds_columns_to_a_database_that_predates_them(
     # Running it a second time is a no-op rather than an error.
     await reopened.create_schema()
     await reopened.dispose()
+
+
+async def test_sessions_never_overlap(database: Database) -> None:
+    """Concurrent sessions must not interleave, because they share a connection.
+
+    Overlapping sessions sit on one transaction, so one session's ``commit``
+    publishes another's partial work and the rollback at close can drop a row
+    that was already committed. The symptom is a silently missing row rather
+    than an error, so assert the ordering directly instead of hoping a
+    concurrent-write test happens to lose one.
+    """
+    order: list[str] = []
+
+    async def use(name: str) -> None:
+        async with database.sessions():
+            order.append(f"{name}:enter")
+            await asyncio.sleep(0)
+            order.append(f"{name}:exit")
+
+    await asyncio.gather(use("a"), use("b"))
+
+    assert order in (
+        ["a:enter", "a:exit", "b:enter", "b:exit"],
+        ["b:enter", "b:exit", "a:enter", "a:exit"],
+    )
+
+
+async def test_concurrent_attempt_writes_all_persist(database: Database) -> None:
+    """End-to-end form of the same invariant: no writer loses its row.
+
+    Weaker than ``test_sessions_never_overlap`` -- unserialised sessions only
+    dropped a row about once in two hundred attempts, so this passes by luck on
+    a broken build. It is here to state the property the scheduler depends on,
+    not to guard it.
+    """
+    now = datetime.now(UTC)
+
+    async def write(index: int) -> None:
+        task_id = f"task_{index:03d}"
+        await database.attempts.add(
+            WorkerAttempt(
+                run_id="run_001",
+                plan_id="plan_001",
+                plan_version=1,
+                task_id=task_id,
+                attempt_id=f"run_001_{task_id}_attempt_001",
+                state=TaskState.COMPLETED,
+                started_at=now,
+                completed_at=now,
+                result=WorkerResult(
+                    task_id=task_id,
+                    status="completed",
+                    summary="Stub summary.",
+                ),
+            )
+        )
+
+    await asyncio.gather(*[write(index) for index in range(1, 9)])
+
+    assert len(await database.attempts.list("run_001")) == 8
