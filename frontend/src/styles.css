@@ -250,28 +250,36 @@ a {
   position: relative;
 }
 
+/* Always visible, not revealed on hover: a control you cannot see is a control
+   you do not know exists. Kept low-contrast at rest so twelve of them down the
+   rail stay quiet, and it only takes on the destructive colour on hover. */
 .run-x {
   position: absolute;
   top: 7px;
   right: 6px;
   width: 20px;
   height: 20px;
+  border: 1px solid var(--line);
   border-radius: 5px;
   display: grid;
   place-items: center;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1;
   color: var(--ink-3);
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  background: var(--shell-2);
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
 }
 
-.run-wrap:hover .run-x,
-.run-x:focus-visible {
-  opacity: 1;
+.run.on ~ .run-x {
+  background: var(--paper);
 }
 
 .run-x:hover {
   background: var(--crit-soft);
+  border-color: var(--crit);
   color: var(--crit);
 }
 
