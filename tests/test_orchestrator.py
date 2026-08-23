@@ -126,6 +126,35 @@ async def test_orchestrator_fails_closed_without_evidence(database: Database) ->
     assert run.status.value == "failed"
 
 
+async def test_partial_dependency_still_schedules_its_dependents(database: Database) -> None:
+    """A PARTIAL upstream must not strand the tasks that depend on it.
+
+    Partial evidence is still evidence, and the dependents get the upstream
+    context either way, so a PARTIAL dependency unblocks them. The assertion
+    that matters is the weaker one: every planned task ends in a recorded
+    terminal state instead of sitting at PENDING while the run reports success.
+    """
+    orchestrator = Orchestrator(
+        database,
+        happy_path_llm_factory(TASK_IDS),
+        worker_runtime=StubWorkerRuntime(status=WorkerStatus.PARTIAL),
+    )
+    await database.runs.create(RunRecord(run_id="run_001", goal="Compare technologies"))
+    orchestrator.start("run_001", "Compare technologies", ["cost"])
+    await orchestrator.wait("run_001")
+
+    tasks = await database.tasks.list("run_001")
+    attempts = await database.attempts.list("run_001")
+
+    # The fan-out plan is task_001 plus two dependents, and none of them may
+    # disappear from the schedule.
+    assert {item.task.task_id for item in tasks} == set(TASK_IDS)
+    unfinished = {TaskState.PENDING, TaskState.READY, TaskState.RUNNING}
+    assert all(item.state not in unfinished for item in tasks)
+    assert all(item.state is TaskState.PARTIAL for item in tasks)
+    assert {attempt.task_id for attempt in attempts} == set(TASK_IDS)
+
+
 class SlowWorkerRuntime(StubWorkerRuntime):
     def __init__(self) -> None:
         super().__init__()

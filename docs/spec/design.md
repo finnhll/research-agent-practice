@@ -951,7 +951,22 @@ researching a slightly loose one.
 
 ## 7.1 Parallelism
 
-Use LangGraph `Send` to fan out independent tasks. Tasks with dependencies should execute only after their dependencies are accepted or explicitly marked unavailable.
+Use LangGraph `Send` to fan out independent tasks.
+
+A dependent task waits on the state of every dependency, and the classification
+must be **exhaustive over `TaskState`** — a state matching neither "go" nor
+"stop" leaves the task pending forever, and because the scheduler stops as soon
+as nothing is ready, that task is dropped from the run with no attempt row, no
+event, and no error while the run still reports success.
+
+| Dependency state | Effect on the dependent |
+|---|---|
+| `completed`, `partial` | Satisfied — schedule it. Partial evidence is still evidence, and `produced_context` reaches the worker either way. |
+| `pending`, `ready`, `running` | Not finished — wait for a later pass. |
+| anything else (`failed`, `timeout`, `blocked`, `cancelled`) | Unsatisfiable — mark the dependent `blocked`. |
+
+Derive the third row as the complement of the first two rather than listing it,
+so that adding a `TaskState` later cannot silently reopen the gap.
 
 Recommended defaults:
 
