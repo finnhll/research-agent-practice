@@ -9,6 +9,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from research_report_agent.agents.clarifier import Clarifier
 from research_report_agent.agents.critic import Critic
 from research_report_agent.agents.guardrail import FinalGuardrail, IntakeGuardrail
 from research_report_agent.agents.planner import Planner
@@ -24,8 +25,10 @@ from research_report_agent.llm import LLMClient
 from research_report_agent.runtime_contracts import (
     AgentEvent,
     AttemptKind,
+    PendingGate,
     ReportDocument,
     RunBudget,
+    RunMode,
     RunPhase,
     RunStatus,
     RunUsage,
@@ -45,6 +48,8 @@ class SupervisorState(TypedDict, total=False):
     run_id: str
     goal: str
     dimensions: list[str]
+    resume_from: str
+    mode: str
     route: str
     blocked_reason: str | None
     execution_error: str | None
@@ -60,6 +65,7 @@ class _RunAgents:
 
     worker: WorkerRuntime
     planner: Planner
+    clarifier: Clarifier
     critic: Critic
     intake_guardrail: IntakeGuardrail
     final_guardrail: FinalGuardrail
@@ -93,16 +99,29 @@ class Orchestrator:
     def _build_graph(self):
         graph = StateGraph(SupervisorState)
         graph.add_node("intake_guardrail", self._node_intake)
+        graph.add_node("clarify", self._node_clarify)
         graph.add_node("plan", self._node_plan)
         graph.add_node("execute_workers", self._node_execute)
         graph.add_node("review", self._node_review)
         graph.add_node("synthesize", self._node_synthesize)
         graph.add_node("final_guardrail", self._node_final_guardrail)
 
-        graph.add_edge(START, "intake_guardrail")
+        # Two entry points instead of a checkpointer. Everything the graph needs
+        # to resume after a gate already lives in the domain tables, so resuming
+        # is just a second invocation that skips the stages already done.
+        graph.add_conditional_edges(
+            START,
+            self._route_entry,
+            {"intake_guardrail": "intake_guardrail", "plan": "plan"},
+        )
         graph.add_conditional_edges(
             "intake_guardrail",
             self._route_after_intake,
+            {"clarify": "clarify", "end": END},
+        )
+        graph.add_conditional_edges(
+            "clarify",
+            self._route_after_clarify,
             {"plan": "plan", "end": END},
         )
         graph.add_edge("plan", "execute_workers")
@@ -116,26 +135,49 @@ class Orchestrator:
         graph.add_edge("final_guardrail", END)
         return graph.compile()
 
-    def start(self, run_id: str, goal: str, dimensions: list[str]) -> None:
-        """Start a run in the background without blocking the API request."""
+    def start(
+        self,
+        run_id: str,
+        goal: str,
+        dimensions: list[str],
+        *,
+        mode: RunMode = RunMode.AUTONOMOUS,
+        resume_from: str = "intake_guardrail",
+    ) -> None:
+        """Start (or resume) a run in the background without blocking the request.
 
-        if run_id in self._background_tasks:
+        ``resume_from`` picks the graph entry point. A run coming back from a
+        gate re-enters further along instead of redoing the stages it already
+        paid for.
+        """
+
+        if (
+            self._background_tasks.get(run_id) is not None
+            and not self._background_tasks[run_id].done()
+        ):
             return
-        llm = self._llm_factory()
-        self._agents[run_id] = _RunAgents(
-            worker=self._injected_worker or WorkerRuntime(llm),
-            planner=Planner(llm),
-            critic=Critic(llm),
-            intake_guardrail=IntakeGuardrail(llm),
-            final_guardrail=FinalGuardrail(llm),
-            synthesizer=Synthesizer(llm),
-        )
+        self._finished.discard(run_id)
+        if run_id not in self._agents:
+            # A run parked on a gate keeps its agents (only _finish discards
+            # them), so resuming in the same process continues with the same
+            # clients rather than building a second set. After a restart the
+            # bundle is gone and gets rebuilt, which is equally correct.
+            llm = self._llm_factory()
+            self._agents[run_id] = _RunAgents(
+                worker=self._injected_worker or WorkerRuntime(llm),
+                planner=Planner(llm),
+                clarifier=Clarifier(llm),
+                critic=Critic(llm),
+                intake_guardrail=IntakeGuardrail(llm),
+                final_guardrail=FinalGuardrail(llm),
+                synthesizer=Synthesizer(llm),
+            )
         self._cancel_events[run_id] = asyncio.Event()
         # Counters are NOT initialised here -- _run_supervisor hydrates them from
         # the database first, so a run that resumes keeps the spend it already
         # incurred. See _hydrate.
         self._background_tasks[run_id] = asyncio.create_task(
-            self._run_supervisor(run_id, goal, dimensions),
+            self._run_supervisor(run_id, goal, dimensions, mode=mode, resume_from=resume_from),
             name=f"research-run-{run_id}",
         )
 
@@ -166,10 +208,21 @@ class Orchestrator:
         run_id: str,
         goal: str,
         dimensions: list[str],
+        *,
+        mode: RunMode = RunMode.AUTONOMOUS,
+        resume_from: str = "intake_guardrail",
     ) -> None:
         try:
             await self._hydrate(run_id)
-            await self.graph.ainvoke({"run_id": run_id, "goal": goal, "dimensions": dimensions})
+            await self.graph.ainvoke(
+                {
+                    "run_id": run_id,
+                    "goal": goal,
+                    "dimensions": dimensions,
+                    "mode": mode.value,
+                    "resume_from": resume_from,
+                }
+            )
         except asyncio.CancelledError:
             await self._persist_cancellation(run_id)
         except Exception as exc:
@@ -199,10 +252,62 @@ class Orchestrator:
                 error=review.blocked_reason or "Research goal blocked",
             )
             return {"route": "end", "blocked_reason": review.blocked_reason}
-        return {"route": "plan", "blocked_reason": None}
+        return {"route": "clarify", "blocked_reason": None}
+
+    def _route_entry(self, state: SupervisorState) -> str:
+        return state.get("resume_from", "intake_guardrail")
 
     def _route_after_intake(self, state: SupervisorState) -> str:
         return state.get("route", "end")
+
+    def _route_after_clarify(self, state: SupervisorState) -> str:
+        return state.get("route", "end")
+
+    async def _node_clarify(self, state: SupervisorState) -> dict[str, Any]:
+        """Restate the question, and in guided mode park the run for confirmation.
+
+        This is the only gate that happens before the run spends anything, so a
+        misread question costs one small model call to catch rather than a full
+        plan-and-research cycle.
+        """
+        run_id = state["run_id"]
+        goal = state["goal"]
+        dimensions = state.get("dimensions", [])
+        await self._set_phase(run_id, RunPhase.CLARIFYING)
+
+        clarified = await self._agents[run_id].clarifier.clarify(goal, dimensions)
+        self._increment_usage(run_id, llm_calls=1)
+        await self._emit(
+            run_id,
+            "clarify.completed",
+            data={"rewritten_goal": clarified.rewritten_goal, "intent": clarified.intent},
+        )
+
+        if state.get("mode") != RunMode.GUIDED.value:
+            # Autonomous runs keep the user's original wording: the rewrite is
+            # advisory, and silently researching a different question than the
+            # one that was asked would be worse than a slightly loose one.
+            return {"route": "plan"}
+
+        await self.database.runs.open_gate(
+            run_id,
+            PendingGate(
+                kind="confirm_question",
+                payload={
+                    "original_goal": goal,
+                    "rewritten_goal": clarified.rewritten_goal,
+                    "intent": clarified.intent,
+                    "rationale": clarified.rationale,
+                    "assumptions": clarified.assumptions,
+                    "suggested_dimensions": clarified.suggested_dimensions,
+                    "dimensions": list(dimensions),
+                },
+            ),
+            RunPhase.AWAITING_CONFIRMATION,
+        )
+        await self._emit(run_id, "gate.opened", data={"kind": "confirm_question"})
+        self._finished.add(run_id)
+        return {"route": "end"}
 
     async def _node_plan(self, state: SupervisorState) -> dict[str, Any]:
         run_id = state["run_id"]

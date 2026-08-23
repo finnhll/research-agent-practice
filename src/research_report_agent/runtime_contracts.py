@@ -22,6 +22,8 @@ class RunPhase(StrEnum):
 
     CREATED = "created"
     INTAKE_GUARDRAIL = "intake_guardrail"
+    CLARIFYING = "clarifying"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
     PLANNING = "planning"
     PLAN_REPAIR = "plan_repair"
     SCHEDULING = "scheduling"
@@ -41,6 +43,7 @@ class RunStatus(StrEnum):
     """Terminal or running status of a research run."""
 
     RUNNING = "running"
+    AWAITING_INPUT = "awaiting_input"
     COMPLETE = "complete"
     COMPLETE_WITH_CAVEATS = "complete_with_caveats"
     FAILED = "failed"
@@ -120,6 +123,26 @@ class RunUsage(StrictRuntimeModel):
     replans: int = Field(default=0, ge=0)
 
 
+class RunMode(StrEnum):
+    """How much the user wants to be asked before the agent proceeds."""
+
+    AUTONOMOUS = "autonomous"
+    GUIDED = "guided"
+
+
+class PendingGate(StrictRuntimeModel):
+    """A checkpoint the run is parked on, waiting for a human answer.
+
+    Stored on the run rather than in a checkpointer: everything the graph needs
+    to resume already lives in the domain tables, so this only has to carry what
+    the user is being asked.
+    """
+
+    kind: str = Field(min_length=1)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class RunRecord(StrictRuntimeModel):
     """Persisted top-level state for one research run."""
 
@@ -132,6 +155,8 @@ class RunRecord(StrictRuntimeModel):
     status: RunStatus = RunStatus.RUNNING
     budget: RunBudget = Field(default_factory=RunBudget)
     usage: RunUsage = Field(default_factory=RunUsage)
+    mode: RunMode = RunMode.AUTONOMOUS
+    pending_gate: PendingGate | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     completed_at: datetime | None = None

@@ -311,3 +311,104 @@ def test_report_html_refuses_to_link_a_javascript_url() -> None:
     # http(s) still links, and a missing title falls back to a singly-escaped URL.
     assert '<a href="https://ok.example/a?x=1&amp;y=2"' in out
     assert "&amp;amp;" not in out
+
+
+async def _guided_client() -> tuple[AsyncClient, object]:
+    database = Database.in_memory()
+    await database.create_schema()
+    orchestrator = Orchestrator(
+        database,
+        happy_path_llm_factory(TASK_IDS),
+        worker_runtime=StubWorkerRuntime(),
+    )
+    app = create_app(database=database, orchestrator=orchestrator)
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    return client, app.state
+
+
+async def test_guided_run_pauses_for_confirmation_before_planning() -> None:
+    client, state = await _guided_client()
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "dimensions": ["cost"], "mode": "guided"},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+
+        run = (await client.get(f"/api/runs/{run_id}")).json()
+        tasks = (await client.get(f"/api/runs/{run_id}/tasks")).json()
+
+    # Parked, not running and not terminal.
+    assert run["status"] == "awaiting_input"
+    assert run["phase"] == "awaiting_confirmation"
+    assert run["pending_gate"]["kind"] == "confirm_question"
+    assert run["pending_gate"]["payload"]["rewritten_goal"]
+    # Crucially: it stopped *before* spending anything on planning or research.
+    assert tasks == []
+
+
+async def test_confirming_a_gate_resumes_the_run_to_completion() -> None:
+    client, state = await _guided_client()
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "mode": "guided"},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+
+        resumed = await client.post(f"/api/runs/{run_id}/confirm", json={})
+        await state.orchestrator.wait(run_id)
+        run = (await client.get(f"/api/runs/{run_id}")).json()
+        report = await client.get(f"/api/runs/{run_id}/report")
+
+    assert resumed.status_code == 200
+    assert run["status"] == "complete"
+    assert run["pending_gate"] is None
+    assert report.status_code == 200
+
+
+async def test_confirming_with_an_edited_question_uses_the_edit() -> None:
+    client, state = await _guided_client()
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "mode": "guided"},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+
+        await client.post(
+            f"/api/runs/{run_id}/confirm",
+            json={"goal": "Compare only lithium iron phosphate cells", "dimensions": ["cost"]},
+        )
+        await state.orchestrator.wait(run_id)
+        run = (await client.get(f"/api/runs/{run_id}")).json()
+
+    assert run["goal"] == "Compare only lithium iron phosphate cells"
+    assert run["dimensions"] == ["cost"]
+
+
+async def test_confirm_rejects_a_run_with_no_open_gate() -> None:
+    client, state = await make_client()
+    async with client:
+        created = await client.post("/api/runs", json={"goal": "Compare technologies"})
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+        response = await client.post(f"/api/runs/{run_id}/confirm", json={})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Run is not waiting for input"
+
+
+async def test_autonomous_runs_are_not_gated() -> None:
+    client, state = await make_client()
+    async with client:
+        created = await client.post("/api/runs", json={"goal": "Compare technologies"})
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+        run = (await client.get(f"/api/runs/{run_id}")).json()
+
+    assert run["status"] == "complete"
+    assert run["pending_gate"] is None

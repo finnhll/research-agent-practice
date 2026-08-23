@@ -28,7 +28,7 @@ from research_report_agent.config import (
 from research_report_agent.llm import LLMClient, LLMError
 from research_report_agent.orchestrator import Orchestrator
 from research_report_agent.report_html import render_report_html
-from research_report_agent.runtime_contracts import RunRecord, RunStatus
+from research_report_agent.runtime_contracts import RunMode, RunRecord, RunStatus
 from research_report_agent.storage import Database
 
 
@@ -37,6 +37,21 @@ class RunCreateRequest(BaseModel):
 
     goal: str = Field(min_length=3, max_length=2000)
     dimensions: list[str] = Field(default_factory=list, max_length=5)
+    # Defaults to autonomous so existing clients keep their uninterrupted
+    # behaviour; the dashboard opts into guided explicitly.
+    mode: RunMode = RunMode.AUTONOMOUS
+
+
+class GateConfirmRequest(BaseModel):
+    """The user's answer to a pending gate.
+
+    Both fields are optional: sending nothing means "proceed as proposed".
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    goal: str | None = Field(default=None, min_length=3, max_length=2000)
+    dimensions: list[str] | None = Field(default=None, max_length=5)
 
 
 class EventListResponse(BaseModel):
@@ -173,10 +188,16 @@ def create_app(
             run_id=run_id,
             goal=request.goal,
             dimensions=request.dimensions,
+            mode=request.mode,
         )
         await db.runs.create(run)
         try:
-            app.state.orchestrator.start(run_id, request.goal, request.dimensions)
+            app.state.orchestrator.start(
+                run_id,
+                request.goal,
+                request.dimensions,
+                mode=request.mode,
+            )
         except LLMError as exc:
             await db.runs.set_terminal(run_id, RunStatus.FAILED, error=str(exc))
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -204,6 +225,49 @@ def create_app(
             raise HTTPException(status_code=409, detail="Run is not active")
         await app.state.orchestrator.cancel(run.run_id)
         updated = await app.state.database.runs.get(run.run_id)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        return updated
+
+    @app.post("/api/runs/{run_id}/confirm", response_model=RunRecord)
+    async def confirm_gate(
+        run_id: str,
+        request: GateConfirmRequest,
+        db: DatabaseDep,
+    ) -> RunRecord:
+        """Answer the run's pending gate and let it continue.
+
+        Resuming re-enters the graph at ``plan`` rather than replaying intake and
+        clarification, so confirming costs nothing beyond the research itself.
+        """
+        run = await db.runs.get(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        if run.pending_gate is None:
+            raise HTTPException(status_code=409, detail="Run is not waiting for input")
+
+        payload = run.pending_gate.payload
+        goal = request.goal or str(payload.get("rewritten_goal") or run.goal)
+        dimensions = (
+            request.dimensions
+            if request.dimensions is not None
+            else list(payload.get("dimensions") or run.dimensions)
+        )
+
+        await db.runs.close_gate(run_id, goal=goal, dimensions=dimensions)
+        try:
+            app.state.orchestrator.start(
+                run_id,
+                goal,
+                dimensions,
+                mode=run.mode,
+                resume_from="plan",
+            )
+        except LLMError as exc:
+            await db.runs.set_terminal(run_id, RunStatus.FAILED, error=str(exc))
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        updated = await db.runs.get(run_id)
         if updated is None:
             raise HTTPException(status_code=404, detail="Run not found")
         return updated

@@ -87,6 +87,20 @@ class GuardrailCheckStatus(StrEnum):
     NOT_APPLICABLE = "not_applicable"
 
 
+class ClarifiedGoal(StrictModel):
+    """The clarifier's reading of a research question, shown to the user for confirmation.
+
+    This exists so a misread question is caught before any research is paid for --
+    the only gate in the system that happens before spend rather than after it.
+    """
+
+    intent: str = Field(min_length=1)
+    rewritten_goal: str = Field(min_length=1, max_length=2000)
+    rationale: str = Field(min_length=1)
+    assumptions: list[str] = Field(default_factory=list)
+    suggested_dimensions: list[str] = Field(default_factory=list, max_length=2)
+
+
 class ResearchTask(StrictModel):
     """One bounded unit of research produced by the planner."""
 

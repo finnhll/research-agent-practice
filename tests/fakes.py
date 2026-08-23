@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from research_report_agent.agents.synthesizer import _ReportDraft
 from research_report_agent.contracts import (
+    ClarifiedGoal,
     CriticReview,
     CriticTaskReview,
     CriticVerdict,
@@ -209,6 +210,17 @@ def make_report_draft() -> _ReportDraft:
     )
 
 
+def make_clarified_goal(goal: str = "Compare technologies") -> ClarifiedGoal:
+    """The clarifier response every factory scripts between intake and planning."""
+    return ClarifiedGoal(
+        intent="comparison",
+        rewritten_goal=goal,
+        rationale="The question was already specific enough to research as written.",
+        assumptions=[],
+        suggested_dimensions=[],
+    )
+
+
 def happy_path_llm_factory(task_ids: list[str]):
     """A ``llm_factory`` that scripts a full ALLOW -> plan -> accept -> report -> ALLOW run."""
 
@@ -217,6 +229,7 @@ def happy_path_llm_factory(task_ids: list[str]):
         return FakeLLMClient(
             [
                 make_intake_review(allow=True),
+                make_clarified_goal(),
                 make_plan(task_ids),
                 accept,
                 accept,
@@ -233,7 +246,15 @@ def failing_llm_factory(task_ids: list[str]):
 
     def factory() -> FakeLLMClient:
         fail = make_critic_review(task_ids, CriticVerdict.FAIL)
-        return FakeLLMClient([make_intake_review(allow=True), make_plan(task_ids), fail, fail])
+        return FakeLLMClient(
+            [
+                make_intake_review(allow=True),
+                make_clarified_goal(),
+                make_plan(task_ids),
+                fail,
+                fail,
+            ]
+        )
 
     return factory
 
@@ -251,7 +272,9 @@ def planning_only_llm_factory(task_ids: list[str]):
     """A ``llm_factory`` that scripts only intake + planning, for tests that cancel mid-run."""
 
     def factory() -> FakeLLMClient:
-        return FakeLLMClient([make_intake_review(allow=True), make_plan(task_ids)])
+        return FakeLLMClient(
+            [make_intake_review(allow=True), make_clarified_goal(), make_plan(task_ids)]
+        )
 
     return factory
 
@@ -262,6 +285,7 @@ __all__ = [
     "blocked_llm_factory",
     "failing_llm_factory",
     "happy_path_llm_factory",
+    "make_clarified_goal",
     "make_critic_review",
     "make_final_review",
     "make_intake_review",

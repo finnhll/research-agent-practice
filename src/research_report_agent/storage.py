@@ -29,9 +29,11 @@ from sqlalchemy.pool import StaticPool
 from research_report_agent.contracts import ResearchTask
 from research_report_agent.runtime_contracts import (
     AgentEvent,
+    PendingGate,
     PlannedTaskRecord,
     ReportDocument,
     RunBudget,
+    RunMode,
     RunPhase,
     RunRecord,
     RunStatus,
@@ -60,6 +62,8 @@ class RunRow(ORMBase):
     status: Mapped[str] = mapped_column(String(48))
     budget: Mapped[dict[str, Any]] = mapped_column(JSON)
     usage: Mapped[dict[str, Any]] = mapped_column(JSON)
+    mode: Mapped[str] = mapped_column(String(32), default=RunMode.AUTONOMOUS.value)
+    pending_gate: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -127,6 +131,8 @@ class RunRepository:
                     status=run.status.value,
                     budget=dump_model(run.budget),
                     usage=dump_model(run.usage),
+                    mode=run.mode.value,
+                    pending_gate=dump_model(run.pending_gate) if run.pending_gate else None,
                     created_at=run.created_at,
                     updated_at=run.updated_at,
                     completed_at=run.completed_at,
@@ -169,6 +175,31 @@ class RunRepository:
             if row is None:
                 raise LookupError(f"unknown run: {run_id}")
             row.budget = dump_model(budget)
+            row.updated_at = utc_now()
+            await session.commit()
+
+    async def open_gate(self, run_id: str, gate: PendingGate, phase: RunPhase) -> None:
+        """Park the run on a gate: paused, not running, not terminal."""
+        async with self._sessionmaker() as session:
+            row = await session.get(RunRow, run_id)
+            if row is None:
+                raise LookupError(f"unknown run: {run_id}")
+            row.pending_gate = dump_model(gate)
+            row.phase = RunPhase(phase).value
+            row.status = RunStatus.AWAITING_INPUT.value
+            row.updated_at = utc_now()
+            await session.commit()
+
+    async def close_gate(self, run_id: str, *, goal: str, dimensions: list[str]) -> None:
+        """Clear the gate and put the run back in flight, with the confirmed question."""
+        async with self._sessionmaker() as session:
+            row = await session.get(RunRow, run_id)
+            if row is None:
+                raise LookupError(f"unknown run: {run_id}")
+            row.pending_gate = None
+            row.goal = goal
+            row.dimensions = dimensions
+            row.status = RunStatus.RUNNING.value
             row.updated_at = utc_now()
             await session.commit()
 
