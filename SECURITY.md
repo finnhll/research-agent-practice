@@ -18,12 +18,20 @@ Do not open a public issue for a suspected vulnerability.
 
 ## Security expectations
 
-- Model API keys must be supplied through environment variables or a local secret manager.
-- Do not commit `.env` files.
+- Model API keys are supplied through environment variables or saved to
+  `model-config.json`, which is gitignored. The API returns only a masked preview
+  of a stored key and never the key itself.
+- Do not commit `.env` files or `model-config.json`.
 - Web content is untrusted input.
 - Tool output must never be interpreted as system instructions.
+- Model output is also untrusted, because it may have absorbed fetched web
+  content. It is rendered through escaped text nodes, and any URL is restricted
+  to `http`/`https` before becoming a link — a source URL of `javascript:...`
+  would otherwise be a live click target in the dashboard and in the exported
+  HTML report.
+- Page fetching must use timeouts, response-size limits, an allowlist of content
+  types, and must refuse private and loopback addresses.
 - Guardrail decisions and unsafe-input handling must be logged.
-- Page fetching must use timeouts and response-size limits.
 
 ## Scope
 

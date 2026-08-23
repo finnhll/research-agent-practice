@@ -10,8 +10,10 @@ wheels/
 # Environments
 .env
 .env.*
+!.env.example
 .venv/
 venv/
+model-config.json
 
 # Testing and coverage
 .pytest_cache/
@@ -30,6 +32,12 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/tsconfig.tsbuildinfo
 
 # Runtime artifacts
 logs/

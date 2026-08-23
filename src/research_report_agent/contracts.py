@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -85,6 +85,20 @@ class GuardrailCheckStatus(StrEnum):
     FLAGGED = "flagged"
     BLOCKED = "blocked"
     NOT_APPLICABLE = "not_applicable"
+
+
+class ClarifiedGoal(StrictModel):
+    """The clarifier's reading of a research question, shown to the user for confirmation.
+
+    This exists so a misread question is caught before any research is paid for --
+    the only gate in the system that happens before spend rather than after it.
+    """
+
+    intent: str = Field(min_length=1)
+    rewritten_goal: str = Field(min_length=1, max_length=2000)
+    rationale: str = Field(min_length=1)
+    assumptions: list[str] = Field(default_factory=list)
+    suggested_dimensions: list[str] = Field(default_factory=list, max_length=2)
 
 
 class ResearchTask(StrictModel):
@@ -197,6 +211,7 @@ class WorkerResult(StrictModel):
     gaps: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     tool_trace_ref: str | None = None
+    produced_context: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_source_references(self) -> WorkerResult:

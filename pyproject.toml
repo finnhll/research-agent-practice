@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "research-report-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Python + LangGraph multi-agent research and reporting system"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,8 +13,16 @@ authors = [
   { name = "Research & Report Agent contributors" },
 ]
 dependencies = [
+  "aiosqlite>=0.20.0",
+  "anthropic>=0.72.0",
+  "fastapi>=0.115.0",
+  "greenlet>=3.0.0",
+  "httpx>=0.27.0",
   "langgraph>=0.2.60",
+  "openai>=1.40.0",
   "pydantic>=2.7.0",
+  "sqlalchemy>=2.0.30",
+  "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +43,7 @@ packages = ["src/research_report_agent"]
 testpaths = ["tests"]
 addopts = "-ra"
 asyncio_mode = "auto"
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

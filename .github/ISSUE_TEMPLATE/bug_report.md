@@ -30,8 +30,11 @@ assignees: []
 ## Environment
 
 - Python version:
+- Node version (if the dashboard is involved):
 - Package version:
 - Operating system:
+- Browser (if the dashboard is involved):
 - Model/tool provider:
+- Run mode: guided / autonomous
 
 ## Additional context
