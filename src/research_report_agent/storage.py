@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+import asyncio
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -129,8 +131,37 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
 }
 
 
+class SessionFactory:
+    """Hands out sessions one at a time so that no two ever overlap.
+
+    Every repository here shares a single SQLite connection: ``StaticPool`` gives
+    the in-memory database exactly one by definition, and a file database
+    serialises writes at the file level regardless. Two ``AsyncSession`` objects
+    used concurrently therefore sit on the *same* transaction -- one session's
+    ``commit`` publishes another's half-written work, and the rollback issued
+    when a session closes can discard a row a different session had already
+    committed.
+
+    That is not theoretical: three workers writing their attempt rows under
+    ``asyncio.gather`` lost one row roughly once in two hundred runs, and the run
+    still reported success, because the lost write left no error behind.
+
+    Serialising checkout removes the overlap. SQLite offers no write concurrency
+    to give up in exchange.
+    """
+
+    def __init__(self, sessionmaker: SessionFactory) -> None:
+        self._sessionmaker = sessionmaker
+        self._lock = asyncio.Lock()
+
+    @asynccontextmanager
+    async def __call__(self) -> AsyncIterator[AsyncSession]:
+        async with self._lock, self._sessionmaker() as session:
+            yield session
+
+
 class RunRepository:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, sessionmaker: SessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
     async def create(self, run: RunRecord) -> None:
@@ -257,7 +288,7 @@ class RunRepository:
 
 
 class TaskRepository:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, sessionmaker: SessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
     async def replace(
@@ -340,7 +371,7 @@ class TaskRepository:
 
 
 class AttemptRepository:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, sessionmaker: SessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
     async def add(self, attempt: WorkerAttempt) -> None:
@@ -367,7 +398,7 @@ class AttemptRepository:
 
 
 class EventRepository:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, sessionmaker: SessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
     async def append(self, event: AgentEvent) -> int:
@@ -412,7 +443,7 @@ class EventRepository:
 
 
 class ReportRepository:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, sessionmaker: SessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
     async def save(self, report: ReportDocument) -> None:
@@ -444,7 +475,8 @@ class ReportRepository:
 class Database:
     def __init__(self, engine: AsyncEngine) -> None:
         self.engine = engine
-        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        sessionmaker = SessionFactory(async_sessionmaker(engine, expire_on_commit=False))
+        self.sessions = sessionmaker
         self.runs = RunRepository(sessionmaker)
         self.tasks = TaskRepository(sessionmaker)
         self.attempts = AttemptRepository(sessionmaker)
