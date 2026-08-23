@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { Run } from "../types";
@@ -41,19 +41,39 @@ export default function RunRail({
   onDeleted: (runId: string) => void;
   loading: boolean;
 }) {
-  // Deleting is irreversible and there is no undo, so the x only arms the
-  // action -- a second, differently-labelled click actually destroys it.
-  const [armed, setArmed] = useState<string | null>(null);
+  // Delete lives behind a right-click rather than a button on the card. It is
+  // irreversible with no undo, and a context menu is close to impossible to
+  // open by accident, which a visible x sitting next to every title is not.
+  const [menu, setMenu] = useState<{ run: Run; x: number; y: number } | null>(null);
   const queryClient = useQueryClient();
 
   const remove = useMutation({
     mutationFn: (runId: string) => api.deleteRun(runId),
     onSuccess: (_data, runId) => {
-      setArmed(null);
+      setMenu(null);
       onDeleted(runId);
       queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
   });
+
+  // Anything that moves the menu away from what it points at closes it.
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
   const groups: Array<[string, Run[]]> = [];
   for (const run of runs) {
     const label = groupLabel(run.created_at);
@@ -88,15 +108,16 @@ export default function RunRail({
           <div key={label}>
             <div className="queue-label">{label}</div>
             {groupRuns.map((run) => (
-              <div
-                key={run.run_id}
-                className={`run-wrap ${armed === run.run_id ? "armed" : ""}`}
-              >
+              <div key={run.run_id} className="run-wrap">
                 <button
                   className={`run ${run.run_id === selectedId ? "on" : ""}`}
                   data-s={statusTone(run.status)}
                   aria-current={run.run_id === selectedId}
                   onClick={() => onSelect(run.run_id)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setMenu({ run, x: event.clientX, y: event.clientY });
+                  }}
                 >
                   <span className="run-goal">{run.goal}</span>
                   <span className="run-meta">
@@ -109,29 +130,6 @@ export default function RunRail({
                   </span>
                 </button>
 
-                {armed === run.run_id ? (
-                  <span className="run-confirm">
-                    <button
-                      className="run-confirm-yes"
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate(run.run_id)}
-                    >
-                      {remove.isPending ? "Deleting…" : "Delete"}
-                    </button>
-                    <button className="run-confirm-no" onClick={() => setArmed(null)}>
-                      Keep
-                    </button>
-                  </span>
-                ) : run.status === "running" ? null : (
-                  <button
-                    className="run-x"
-                    aria-label={`Delete run: ${run.goal}`}
-                    title="Delete this run"
-                    onClick={() => setArmed(run.run_id)}
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
             ))}
           </div>
@@ -147,6 +145,41 @@ export default function RunRail({
           </span>
         </button>
       </div>
+
+      {menu ? (
+        <div
+          className="ctx"
+          role="menu"
+          aria-label={`Actions for ${menu.run.goal}`}
+          // Nudged in from the pointer so the menu never opens off-screen at
+          // the bottom or right of the window.
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 232),
+            top: Math.min(menu.y, window.innerHeight - 96),
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="ctx-title" title={menu.run.goal}>
+            {menu.run.goal}
+          </div>
+          {menu.run.status === "running" ? (
+            <div className="ctx-note">Still running — stop it before deleting.</div>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              className="ctx-danger"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(menu.run.run_id)}
+            >
+              {remove.isPending ? "Deleting…" : "Delete run"}
+            </button>
+          )}
+          {remove.isError ? (
+            <div className="ctx-note ctx-error">{(remove.error as Error).message}</div>
+          ) : null}
+        </div>
+      ) : null}
     </aside>
   );
 }

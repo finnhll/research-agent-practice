@@ -64,41 +64,64 @@ describe("RunRail delete", () => {
     mocks.deleteRun.mockResolvedValue(undefined);
   });
 
-  it("does not delete on the first click -- it only arms", async () => {
+  it("offers no delete affordance until the card is right-clicked", () => {
+    renderRail([run()]);
+    expect(screen.queryByRole("menuitem", { name: /delete run/i })).not.toBeInTheDocument();
+  });
+
+  it("opens a menu naming the run on right-click, without deleting", async () => {
     const user = userEvent.setup();
     renderRail([run()]);
 
-    await user.click(screen.getByRole("button", { name: /delete run:/i }));
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
 
+    expect(screen.getByRole("menuitem", { name: /delete run/i })).toBeInTheDocument();
+    // The menu names the run so there is no doubt which one is about to go.
+    expect(screen.getByRole("menu", { name: /compare battery chemistries/i })).toBeInTheDocument();
     expect(mocks.deleteRun).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /keep/i })).toBeInTheDocument();
   });
 
-  it("deletes once confirmed, and tells the parent which run went", async () => {
+  it("deletes only when the menu item is chosen", async () => {
     const user = userEvent.setup();
     const onDeleted = renderRail([run()]);
 
-    await user.click(screen.getByRole("button", { name: /delete run:/i }));
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+    await user.click(screen.getByRole("menuitem", { name: /delete run/i }));
 
     expect(mocks.deleteRun).toHaveBeenCalledWith("run_001");
     await vi.waitFor(() => expect(onDeleted).toHaveBeenCalledWith("run_001"));
   });
 
-  it("backs out cleanly on Keep", async () => {
+  it("closes on Escape without deleting", async () => {
     const user = userEvent.setup();
     renderRail([run()]);
 
-    await user.click(screen.getByRole("button", { name: /delete run:/i }));
-    await user.click(screen.getByRole("button", { name: /keep/i }));
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+    await user.keyboard("{Escape}");
 
+    expect(screen.queryByRole("menuitem", { name: /delete run/i })).not.toBeInTheDocument();
     expect(mocks.deleteRun).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /delete run:/i })).toBeInTheDocument();
   });
 
-  it("offers no delete while a run is still going", () => {
+  it("refuses to offer delete while a run is still going", async () => {
+    const user = userEvent.setup();
     renderRail([run({ status: "running" })]);
-    expect(screen.queryByRole("button", { name: /delete run:/i })).not.toBeInTheDocument();
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+
+    expect(screen.queryByRole("menuitem", { name: /delete run/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/stop it before deleting/i)).toBeInTheDocument();
   });
 });

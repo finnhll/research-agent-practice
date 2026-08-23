@@ -250,80 +250,12 @@ a {
   position: relative;
 }
 
-/* Always visible, not revealed on hover: a control you cannot see is a control
-   you do not know exists. Kept low-contrast at rest so twelve of them down the
-   rail stay quiet, and it only takes on the destructive colour on hover. */
-.run-x {
-  position: absolute;
-  top: 7px;
-  right: 6px;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  line-height: 1;
-  color: var(--ink-3);
-  background: var(--shell-2);
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-
-.run.on ~ .run-x {
-  background: var(--paper);
-}
-
-.run-x:hover {
-  background: var(--crit-soft);
-  border-color: var(--crit);
-  color: var(--crit);
-}
-
-.run-confirm {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 0 8px;
-  border-radius: var(--radius);
-  background: var(--crit-soft);
-}
-
-.run-confirm-yes,
-.run-confirm-no {
-  border-radius: 5px;
-  padding: 4px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.run-confirm-yes {
-  background: var(--crit);
-  color: var(--paper);
-}
-
-.run-confirm-yes:disabled {
-  opacity: 0.6;
-}
-
-.run-confirm-no {
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink-2);
-}
-
 .run {
   display: block;
   width: 100%;
   text-align: left;
   position: relative;
-  padding: 9px 28px 9px 13px;
+  padding: 9px 10px 9px 13px;
   border-radius: var(--radius);
   margin-bottom: 1px;
 }
@@ -457,6 +389,64 @@ a {
 
 .rail-scrim {
   display: none;
+}
+
+
+/* ── run context menu ─────────────────────────────── */
+.ctx {
+  position: fixed;
+  z-index: 60;
+  min-width: 216px;
+  max-width: 232px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px -8px rgba(20, 24, 31, 0.3);
+  padding: 5px;
+}
+
+.ctx-title {
+  font-size: 11px;
+  color: var(--ink-3);
+  padding: 5px 8px 7px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.ctx-danger {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--crit);
+}
+
+.ctx-danger:hover:not(:disabled) {
+  background: var(--crit-soft);
+}
+
+.ctx-danger:disabled {
+  opacity: 0.6;
+}
+
+.ctx-note {
+  padding: 6px 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
+.ctx-error {
+  color: var(--crit);
 }
 
 /* ── workspace ────────────────────────────────────── */
