@@ -1354,8 +1354,10 @@ a {
 }
 
 /* ── composer ─────────────────────────────────────── */
+/* Fills the sheet, so the composer is exactly as wide as the workspace a run
+   opens into and the page does not narrow when you start a new question. */
 .hello {
-  max-width: 640px;
+  width: 100%;
   margin: min(8vh, 72px) auto 0;
   text-align: center;
 }
@@ -1372,8 +1374,9 @@ a {
 .hello > p {
   font-size: 14.5px;
   color: var(--ink-2);
-  margin: 0 0 26px;
+  margin: 0 auto 26px;
   line-height: 1.6;
+  max-width: 60ch;
 }
 
 .composer {
