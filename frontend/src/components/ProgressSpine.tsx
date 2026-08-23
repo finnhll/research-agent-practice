@@ -113,7 +113,7 @@ export default function ProgressSpine({
         <span className="mono">{elapsed}</span>
         <span className="spacer" />
         <span className="mono">
-          {run.usage.llm_calls} model calls · {run.usage.search_calls} searches
+          {run.usage.llm_calls} model calls · {run.usage.tool_calls} tool calls
           {run.usage.retries ? ` · ${run.usage.retries} retries` : ""}
         </span>
       </div>

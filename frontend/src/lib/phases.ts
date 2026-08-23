@@ -30,6 +30,7 @@ const PHASE_TO_STAGE: Record<string, StageId> = {
   revising: "review",
   replanning: "review",
   synthesizing: "write",
+  awaiting_report_review: "write",
   report_repair: "write",
   final_guardrail: "write",
   finalizing: "write",
