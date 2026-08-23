@@ -51,19 +51,27 @@ jobs:
           from pathlib import Path
           from urllib.parse import urlparse
 
-          markdown_files = [path for path in Path(".").rglob("*.md") if ".venv" not in path.parts]
+          skip = {".venv", "node_modules", ".git", "dist"}
+          markdown_files = [
+              path for path in Path(".").rglob("*.md") if not skip & set(path.parts)
+          ]
           broken_links = []
 
           for markdown_file in markdown_files:
               text = markdown_file.read_text(encoding="utf-8")
               links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", text)
               for link in links:
-                  target = urlparse(link).path.lstrip("/")
-                  if not target or urlparse(link).netloc:
+                  parsed = urlparse(link)
+                  if parsed.scheme or parsed.netloc or link.startswith("#"):
                       continue
-                  if target.startswith("#") or link.startswith("#"):
+                  if not parsed.path:
                       continue
-                  if not (Path(target).is_file() or Path(target).is_dir()):
+                  # Markdown relative links resolve against the file that
+                  # contains them, not the repository root -- which is how
+                  # GitHub renders them. Resolving from the root only happened
+                  # to work while every link lived in a top-level file.
+                  target = (markdown_file.parent / parsed.path).resolve()
+                  if not target.exists():
                       broken_links.append(f"{markdown_file}: {link}")
 
           if broken_links:
