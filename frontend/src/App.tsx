@@ -162,10 +162,8 @@ export default function App() {
             <div className="sheet">
               <div className="hello">
                 <h2>What do you want researched?</h2>
-                <p>
-                  Ask a broad question. The agent breaks it into tasks, searches the web,
-                  checks its own work, and writes back a cited report.
-                </p>
+                {/* What the agent does is now introduced inside the box itself,
+                    so repeating it here would say the same thing twice. */}
 
                 <ChatComposer
                   submitting={createRun.isPending}

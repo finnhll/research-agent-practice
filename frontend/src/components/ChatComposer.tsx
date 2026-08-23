@@ -5,15 +5,21 @@ import { useEffect, useRef, useState } from "react";
  * spend a task on it and the critic reports it under missing_dimensions, so these
  * have to apply to almost any question. Anything narrower goes in via "Add focus".
  */
+/** Introduces what the agent does, in the box where the work starts. */
+const PLACEHOLDER =
+  "Ask a broad research question. I break it into separate tasks, search the " +
+  "web for each one, check my own findings, and write back a report with every " +
+  "claim cited.";
+
 const DIMENSIONS = ["cost", "risks", "tradeoffs", "alternatives", "track record"];
 
 /**
- * The API allows up to 5 (RunCreateRequest.dimensions), but the planner only ever
- * produces 3-6 tasks, so each dimension it is told to cover claims one of them.
- * Two keeps the user's angles honoured while leaving the planner room to decompose
- * the question itself.
+ * The API allows up to 5 (RunCreateRequest.dimensions). Four is a deliberate
+ * choice below that: the planner only ever produces 3-6 tasks, so every
+ * dimension it is told to cover claims one of them, and at four most of the
+ * plan is spoken for before the planner decomposes the question itself.
  */
-const MAX_DIMENSIONS = 2;
+const MAX_DIMENSIONS = 4;
 
 export default function ChatComposer({
   onSubmit,
@@ -156,7 +162,7 @@ export default function ChatComposer({
           value={goal}
           rows={1}
           aria-label="Research goal"
-          placeholder="Ask a research question — e.g. Compare Rust and Go for a new backend service."
+          placeholder={PLACEHOLDER}
           onChange={(event) => {
             setGoal(event.target.value);
             autoGrow();

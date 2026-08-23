@@ -1478,8 +1478,8 @@ a {
 }
 
 .focus-eyebrow {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -1580,7 +1580,7 @@ a {
   font-size: 15px;
   line-height: 1.55;
   padding: 6px 0;
-  min-height: 108px;
+  min-height: 72px;
   max-height: 320px;
 }
 

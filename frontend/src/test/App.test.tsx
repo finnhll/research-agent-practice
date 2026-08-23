@@ -112,17 +112,19 @@ describe("App", () => {
     );
   });
 
-  it("stops the user selecting more than two dimensions", async () => {
+  it("stops the user selecting more than four dimensions", async () => {
     mocks.listRuns.mockResolvedValue([]);
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole("button", { name: "cost" }));
-    await user.click(screen.getByRole("button", { name: "risks" }));
+    for (const label of ["cost", "risks", "tradeoffs", "alternatives"]) {
+      await user.click(await screen.findByRole("button", { name: label }));
+    }
 
-    expect(screen.getByRole("button", { name: "tradeoffs" })).toBeDisabled();
+    // The fifth preset and the custom field both close once four are picked.
+    expect(screen.getByRole("button", { name: "track record" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /add focus/i })).toBeDisabled();
-    expect(screen.getByText(/2 of 2 — deselect to swap/i)).toBeInTheDocument();
+    expect(screen.getByText(/4 of 4 — deselect to swap/i)).toBeInTheDocument();
   });
 
   it("lets the user swap a dimension once at the limit", async () => {
@@ -130,11 +132,14 @@ describe("App", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole("button", { name: "cost" }));
-    await user.click(screen.getByRole("button", { name: "risks" }));
+    for (const label of ["cost", "risks", "tradeoffs", "alternatives"]) {
+      await user.click(await screen.findByRole("button", { name: label }));
+    }
+    expect(screen.getByRole("button", { name: "track record" })).toBeDisabled();
+
     await user.click(screen.getByRole("button", { name: "cost" }));
 
-    expect(screen.getByRole("button", { name: "tradeoffs" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "track record" })).toBeEnabled();
   });
 
   it("opens the run workspace as soon as a question is submitted", async () => {
