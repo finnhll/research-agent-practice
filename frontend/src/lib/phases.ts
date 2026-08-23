@@ -15,10 +15,12 @@ export const STAGES = [
 ] as const;
 
 export type StageId = (typeof STAGES)[number]["id"];
-export type StageState = "done" | "now" | "waiting";
+export type StageState = "done" | "now" | "paused" | "waiting";
 
 const PHASE_TO_STAGE: Record<string, StageId> = {
   intake_guardrail: "check",
+  clarifying: "check",
+  awaiting_confirmation: "check",
   planning: "plan",
   plan_repair: "plan",
   scheduling: "plan",
@@ -94,7 +96,10 @@ export function stageStates(run: Run, tasks: TaskRecord[] = []): Record<StageId,
     } else if (index < currentIndex) {
       states[stage.id] = "done";
     } else if (index === currentIndex) {
-      states[stage.id] = stopped ? "waiting" : "now";
+      // Parked at a gate the run is not working, so the stage must not animate
+      // as though it were.
+      if (run.status === "awaiting_input") states[stage.id] = "paused";
+      else states[stage.id] = stopped ? "waiting" : "now";
     } else {
       states[stage.id] = "waiting";
     }
@@ -104,6 +109,7 @@ export function stageStates(run: Run, tasks: TaskRecord[] = []): Record<StageId,
 
 export const STATUS_LABELS: Record<RunStatus, string> = {
   running: "Working",
+  awaiting_input: "Needs your OK",
   complete: "Complete",
   complete_with_caveats: "Complete, with caveats",
   failed: "Failed",
@@ -114,6 +120,7 @@ export const STATUS_LABELS: Record<RunStatus, string> = {
 /** Sidebar stripe colour + report badge tone. */
 export function statusTone(status: RunStatus): string {
   if (status === "running") return "running";
+  if (status === "awaiting_input") return "awaiting";
   if (status === "complete") return "complete";
   if (status === "complete_with_caveats") return "caveats";
   if (status === "blocked" || status === "failed") return "blocked";

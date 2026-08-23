@@ -29,6 +29,8 @@ const run: Run = {
   phase: "terminal",
   status: "complete",
   budget: { max_retries_per_task: 1, max_replans: 1 },
+  mode: "guided",
+  pending_gate: null,
   usage: {
     llm_calls: 3,
     tool_calls: 9,

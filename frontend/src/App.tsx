@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import type { RunMode } from "./types";
 import type { Run } from "./types";
 import ChatComposer from "./components/ChatComposer";
 import ModelSettings from "./components/ModelSettings";
@@ -23,6 +24,7 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [mode, setMode] = useState<RunMode>("guided");
   const queryClient = useQueryClient();
 
   const runsQuery = useQuery({
@@ -33,7 +35,7 @@ export default function App() {
 
   const createRun = useMutation({
     mutationFn: ({ goal, dimensions }: { goal: string; dimensions: string[] }) =>
-      api.createRun(goal, dimensions),
+      api.createRun(goal, dimensions, mode),
     onSuccess: (run) => {
       // Seed the cache before switching. invalidateQueries only *schedules* a
       // refetch, so without this the stale-selection guard below runs against a
@@ -171,6 +173,30 @@ export default function App() {
                     {(createRun.error as Error).message}
                   </p>
                 ) : null}
+
+                <div className="mode-row">
+                  <div className="mode-toggle" role="group" aria-label="How much to ask">
+                    <button
+                      className={mode === "guided" ? "on" : ""}
+                      aria-pressed={mode === "guided"}
+                      onClick={() => setMode("guided")}
+                    >
+                      Guided
+                    </button>
+                    <button
+                      className={mode === "autonomous" ? "on" : ""}
+                      aria-pressed={mode === "autonomous"}
+                      onClick={() => setMode("autonomous")}
+                    >
+                      Autonomous
+                    </button>
+                  </div>
+                  <span>
+                    {mode === "guided"
+                      ? "I'll confirm the question with you before researching"
+                      : "I'll research straight through without stopping"}
+                  </span>
+                </div>
 
                 <div className="examples">
                   <div className="ex-label">Or start from one of these</div>

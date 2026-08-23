@@ -3,6 +3,7 @@ import { api, reportHtmlUrl, reportMarkdownUrl } from "../api";
 import { useRunStream } from "../hooks/useRunStream";
 import type { Run } from "../types";
 import { STATUS_LABELS, isTerminal, statusTone } from "../lib/phases";
+import ConfirmGate from "./ConfirmGate";
 import Inspector from "./Inspector";
 import ProgressSpine from "./ProgressSpine";
 import ReportViewer from "./ReportViewer";
@@ -27,9 +28,15 @@ export default function RunWorkspace({
     queryKey: ["run", runId],
     queryFn: () => api.getRun(runId),
     initialData: initialRun,
-    refetchInterval: (query) => (query.state.data?.status === "running" ? 1500 : false),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      // Keep polling while parked at a gate too: confirming it elsewhere (or
+      // in another tab) should show up here without a manual reload.
+      return status === "running" || status === "awaiting_input" ? 1500 : false;
+    },
   });
   const run = runQuery.data ?? initialRun;
+  const waiting = run.status === "awaiting_input";
   const active = run.status === "running";
   useRunStream(runId, active);
 
@@ -145,6 +152,10 @@ export default function RunWorkspace({
               </div>
             ) : null}
 
+            {waiting && run.pending_gate ? (
+              <ConfirmGate runId={runId} gate={run.pending_gate} />
+            ) : null}
+
             {blocked ? (
               <div className="blocked">
                 <h3>
@@ -175,7 +186,7 @@ export default function RunWorkspace({
               </p>
             ) : null}
 
-            {!active && !report && !blocked ? (
+            {!active && !waiting && !report && !blocked ? (
               <p className="await-note">
                 <span className={`status-badge ${statusTone(run.status)}`}>
                   {STATUS_LABELS[run.status]}

@@ -16,8 +16,10 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     select,
+    text,
 )
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
@@ -114,6 +116,16 @@ class ReportRow(ORMBase):
     report: Mapped[dict[str, Any]] = mapped_column(JSON)
     markdown: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# Columns added after the first release. Kept beside the models so a new column
+# and its migration are edited together; see Database._add_missing_columns.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "runs": {
+        "mode": f"TEXT NOT NULL DEFAULT '{RunMode.AUTONOMOUS.value}'",
+        "pending_gate": "JSON",
+    },
+}
 
 
 class RunRepository:
@@ -434,6 +446,30 @@ class Database:
     async def create_schema(self) -> None:
         async with self.engine.begin() as connection:
             await connection.run_sync(ORMBase.metadata.create_all)
+            await self._add_missing_columns(connection)
+
+    async def _add_missing_columns(self, connection: AsyncConnection) -> None:
+        """Add columns that were introduced after a database was first created.
+
+        ``create_all`` only creates missing *tables*; it will not touch an
+        existing one, so a column added later is silently absent on any
+        database that predates it and every query against that table fails.
+        Tests never see this because they build a fresh in-memory schema.
+
+        This is deliberately minimal -- additive columns only, applied on every
+        start, idempotent. Anything needing a real backfill, a type change, or a
+        drop wants a migration tool rather than this.
+        """
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {
+                row[1]
+                for row in (await connection.execute(text(f"PRAGMA table_info({table})"))).all()
+            }
+            for column, definition in columns.items():
+                if column not in existing:
+                    await connection.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+                    )
 
     async def dispose(self) -> None:
         await self.engine.dispose()

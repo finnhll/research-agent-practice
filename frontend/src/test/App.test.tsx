@@ -31,6 +31,8 @@ function makeRun(overrides: Record<string, unknown> = {}) {
     phase: "planning",
     status: "running",
     budget: {},
+    mode: "guided",
+    pending_gate: null,
     usage: {
       llm_calls: 0,
       tool_calls: 0,
@@ -82,7 +84,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await vi.waitFor(() =>
-      expect(mocks.createRun).toHaveBeenCalledWith("Compare battery chemistries", []),
+      expect(mocks.createRun).toHaveBeenCalledWith("Compare battery chemistries", [], "guided"),
     );
   });
 
@@ -102,10 +104,11 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await vi.waitFor(() =>
-      expect(mocks.createRun).toHaveBeenCalledWith("Compare battery chemistries", [
-        "cost",
-        "supply chain",
-      ]),
+      expect(mocks.createRun).toHaveBeenCalledWith(
+        "Compare battery chemistries",
+        ["cost", "supply chain"],
+        "guided",
+      ),
     );
   });
 

@@ -8,6 +8,7 @@ function stageSubtitle(
   state: string,
 ): string {
   if (state === "waiting") return "Waiting";
+  if (state === "paused") return "Waiting for you";
   const done = tasks.filter((task) => task.state === "completed").length;
   switch (stageId) {
     case "check":

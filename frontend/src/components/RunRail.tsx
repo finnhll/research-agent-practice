@@ -13,6 +13,7 @@ function groupLabel(iso: string): string {
 
 function summarise(run: Run): string {
   if (run.status === "running") return "Working";
+  if (run.status === "awaiting_input") return "Needs your OK";
   if (run.status === "complete") return "Complete";
   if (run.status === "complete_with_caveats") return "Complete, with caveats";
   if (run.status === "blocked") return "Blocked";
@@ -78,7 +79,9 @@ export default function RunRail({
               >
                 <span className="run-goal">{run.goal}</span>
                 <span className="run-meta">
-                  {run.status === "running" ? <span className="pulse" /> : null}
+                  {run.status === "running" || run.status === "awaiting_input" ? (
+                    <span className="pulse" />
+                  ) : null}
                   {summarise(run)}
                   <span className="dot" />
                   {timeAgo(run.created_at)}

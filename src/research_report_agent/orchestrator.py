@@ -239,6 +239,7 @@ class Orchestrator:
         run_id = state["run_id"]
         await self._set_phase(run_id, RunPhase.INTAKE_GUARDRAIL)
         review = await self._agents[run_id].intake_guardrail.review(run_id, state["goal"])
+        self._increment_usage(run_id, llm_calls=1)
         await self._emit(
             run_id,
             "intake_guardrail.completed",
@@ -289,6 +290,9 @@ class Orchestrator:
             # one that was asked would be worse than a slightly loose one.
             return {"route": "plan"}
 
+        # Parking is a durability boundary just like a phase change: the run may
+        # sit here across a restart, so its spend has to be on record first.
+        await self._flush_usage(run_id)
         await self.database.runs.open_gate(
             run_id,
             PendingGate(
@@ -602,6 +606,9 @@ class Orchestrator:
             llm_calls=1,
             tool_calls=self._agents[run_id].worker.tools.call_count - tool_calls_before,
         )
+        # Research is a single long phase, so waiting for the next phase change
+        # would leave the dashboard reporting stale counts for the whole of it.
+        await self._flush_usage(run_id)
         await self._emit(
             run_id,
             "worker.attempt.completed",

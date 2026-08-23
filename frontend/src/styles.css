@@ -530,6 +530,208 @@ a {
   background: var(--crit-soft);
 }
 
+/* ── confirmation gate ────────────────────────────── */
+/* The run is stopped here, so this outranks the spine visually. */
+.gate {
+  background: var(--paper);
+  border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 20px 24px 18px;
+  margin-bottom: 22px;
+}
+
+.gate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.gate-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 20px;
+  padding: 3px 9px;
+}
+
+.gate-note {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.gate-lead {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.gate-goal {
+  margin: 0 0 12px;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--line);
+  font-family: Newsreader, Georgia, serif;
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.gate-edit {
+  width: 100%;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: Newsreader, Georgia, serif;
+  font-size: 18px;
+  line-height: 1.45;
+  padding: 10px 12px;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.gate-edit:focus {
+  outline: none;
+}
+
+.gate-diff {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+
+.gate-diff summary {
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.gate-diff blockquote {
+  margin: 8px 0 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+  color: var(--ink-3);
+  font-family: Newsreader, Georgia, serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.gate-why {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+.gate-assumptions {
+  margin-bottom: 14px;
+}
+
+.gate-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.gate-assumptions ul {
+  margin: 5px 0 0;
+  padding-left: 18px;
+}
+
+.gate-assumptions li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.gate-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.gate-go {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gate-go:hover:not(:disabled) {
+  background: var(--accent-2);
+}
+
+.gate-go:disabled {
+  opacity: 0.5;
+}
+
+.gate-alt {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.gate-alt:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+.run[data-s="awaiting"]::before {
+  background: var(--accent);
+}
+
+.status-badge.awaiting {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ── mode toggle ──────────────────────────────────── */
+.mode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.mode-toggle button {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.mode-toggle button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ── progress spine ───────────────────────────────── */
 .progress {
   background: var(--paper);
@@ -585,6 +787,28 @@ a {
 .stage[data-st="done"] .tick::after {
   content: "\2713";
   color: var(--paper);
+}
+
+.stage[data-st="paused"] .tick {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.stage[data-st="paused"] .tick::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.stage[data-st="paused"] .stage-name {
+  color: var(--ink);
+}
+
+.stage[data-st="paused"] .stage-sub {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .stage[data-st="now"] .tick {

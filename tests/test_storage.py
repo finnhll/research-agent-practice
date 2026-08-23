@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from research_report_agent.contracts import ResearchTask
 from research_report_agent.runtime_contracts import (
     AgentEvent,
+    RunMode,
     RunRecord,
     TaskState,
     WorkerAttempt,
@@ -107,3 +110,39 @@ async def test_report_round_trip(database: Database) -> None:
 
     assert stored is not None
     assert stored.markdown.startswith("#")
+
+
+async def test_create_schema_adds_columns_to_a_database_that_predates_them(
+    tmp_path: Path,
+) -> None:
+    """Upgrading an existing database must not break every query against it.
+
+    create_all only creates missing *tables*, so a column added in a later
+    release is silently absent on any database created before it. In-memory
+    test databases never hit this because they are always built fresh -- this
+    reproduces the real upgrade path with a file that genuinely lacks the
+    columns.
+    """
+    path = tmp_path / "old.sqlite3"
+    database = Database.sqlite(path)
+    await database.create_schema()
+
+    # Rewind: drop the columns to recreate a pre-upgrade database.
+    async with database.engine.begin() as connection:
+        for column in ("mode", "pending_gate"):
+            await connection.execute(text(f"ALTER TABLE runs DROP COLUMN {column}"))
+    await database.dispose()
+
+    reopened = Database.sqlite(path)
+    await reopened.create_schema()
+    await reopened.runs.create(RunRecord(run_id="run_001", goal="Compare technologies"))
+
+    run = await reopened.runs.get("run_001")
+    assert run is not None
+    assert run.mode is RunMode.AUTONOMOUS
+    assert run.pending_gate is None
+    assert await reopened.runs.list()
+
+    # Running it a second time is a no-op rather than an error.
+    await reopened.create_schema()
+    await reopened.dispose()

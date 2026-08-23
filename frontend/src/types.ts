@@ -15,8 +15,25 @@ export interface ProviderPreset {
   models: string[];
 }
 
+export type RunMode = "autonomous" | "guided";
+
+export interface PendingGate {
+  kind: string;
+  payload: {
+    original_goal?: string;
+    rewritten_goal?: string;
+    intent?: string;
+    rationale?: string;
+    assumptions?: string[];
+    suggested_dimensions?: string[];
+    dimensions?: string[];
+  };
+  created_at: string;
+}
+
 export type RunStatus =
   | "running"
+  | "awaiting_input"
   | "complete"
   | "complete_with_caveats"
   | "failed"
@@ -38,6 +55,8 @@ export interface Run {
     retries: number;
     replans: number;
   };
+  mode: RunMode;
+  pending_gate: PendingGate | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;

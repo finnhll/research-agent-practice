@@ -5,6 +5,7 @@ import type {
   ProviderPreset,
   Report,
   Run,
+  RunMode,
   TaskRecord,
   WorkerAttempt,
 } from "./types";
@@ -28,10 +29,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  createRun(goal: string, dimensions: string[]): Promise<Run> {
+  createRun(goal: string, dimensions: string[], mode: RunMode = "guided"): Promise<Run> {
     return request<Run>("/api/runs", {
       method: "POST",
-      body: JSON.stringify({ goal, dimensions }),
+      body: JSON.stringify({ goal, dimensions, mode }),
+    });
+  },
+  confirmGate(
+    runId: string,
+    update: { goal?: string; dimensions?: string[] } = {},
+  ): Promise<Run> {
+    return request<Run>(`/api/runs/${runId}/confirm`, {
+      method: "POST",
+      body: JSON.stringify(update),
     });
   },
   listRuns(): Promise<Run[]> {
