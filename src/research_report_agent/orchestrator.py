@@ -131,9 +131,9 @@ class Orchestrator:
             synthesizer=Synthesizer(llm),
         )
         self._cancel_events[run_id] = asyncio.Event()
-        self._event_counters[run_id] = 0
-        self._usage[run_id] = RunUsage()
-        self._budgets[run_id] = RunBudget()
+        # Counters are NOT initialised here -- _run_supervisor hydrates them from
+        # the database first, so a run that resumes keeps the spend it already
+        # incurred. See _hydrate.
         self._background_tasks[run_id] = asyncio.create_task(
             self._run_supervisor(run_id, goal, dimensions),
             name=f"research-run-{run_id}",
@@ -168,6 +168,7 @@ class Orchestrator:
         dimensions: list[str],
     ) -> None:
         try:
+            await self._hydrate(run_id)
             await self.graph.ainvoke({"run_id": run_id, "goal": goal, "dimensions": dimensions})
         except asyncio.CancelledError:
             await self._persist_cancellation(run_id)
@@ -529,6 +530,9 @@ class Orchestrator:
 
     async def _set_phase(self, run_id: str, phase: RunPhase) -> None:
         await self.database.runs.set_phase(run_id, phase)
+        # A phase boundary is the natural checkpoint: cheap, already durable,
+        # and the only place a run can be interrupted between units of work.
+        await self._flush_usage(run_id)
         await self._emit(
             run_id,
             "run.phase.changed",
@@ -587,6 +591,41 @@ class Orchestrator:
                 )
         await self._emit(run_id, "run.cancelled")
         await self._finish(run_id, RunStatus.CANCELLED)
+
+    async def _hydrate(self, run_id: str) -> None:
+        """Restore this run's counters from the database instead of zeroing them.
+
+        Usage, budget and the event counter used to be re-initialised on every
+        ``start()``. That was invisible while a run always executed inside one
+        continuous background task, but it means a run that pauses and later
+        resumes -- in a new process, or after a restart -- comes back believing
+        it has spent nothing. Budget caps would then be enforced against zero,
+        so pausing would silently refill the quota, and the event counter would
+        re-issue ids that already exist.
+
+        The database is the source of truth for all three.
+        """
+        record = await self.database.runs.get(run_id)
+        if record is None:
+            self._usage.setdefault(run_id, RunUsage())
+            self._budgets.setdefault(run_id, RunBudget())
+            self._event_counters.setdefault(run_id, 0)
+            return
+
+        self._usage[run_id] = record.usage
+        self._budgets[run_id] = record.budget
+        self._event_counters[run_id] = await self.database.events.count(run_id)
+
+    async def _flush_usage(self, run_id: str) -> None:
+        """Write usage through to the database at a phase boundary.
+
+        Usage used to reach the database only in ``_finish``, so an in-flight
+        run reported zeros and a run that never terminates -- one paused at a
+        gate, for instance -- never persisted its spend at all.
+        """
+        usage = self._usage.get(run_id)
+        if usage is not None:
+            await self.database.runs.set_usage(run_id, usage)
 
     def _budget(self, run_id: str) -> RunBudget:
         return self._budgets.setdefault(run_id, RunBudget())

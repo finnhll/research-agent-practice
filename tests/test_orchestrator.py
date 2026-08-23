@@ -13,7 +13,13 @@ from tests.fakes import (
 
 from research_report_agent.contracts import WorkerStatus
 from research_report_agent.orchestrator import Orchestrator
-from research_report_agent.runtime_contracts import RunRecord, TaskState
+from research_report_agent.runtime_contracts import (
+    RunBudget,
+    RunPhase,
+    RunRecord,
+    RunUsage,
+    TaskState,
+)
 from research_report_agent.storage import Database
 
 TASK_IDS = ["task_001", "task_002", "task_003"]
@@ -157,3 +163,65 @@ async def test_orchestrator_cancels_running_work(database: Database) -> None:
     assert run is not None
     assert run.status.value == "cancelled"
     assert tasks[0].state is TaskState.CANCELLED
+
+
+async def test_usage_and_budget_survive_a_new_orchestrator(database: Database) -> None:
+    """A resumed run must not forget what it already spent.
+
+    Simulates a restart: the same run_id is started again by a *different*
+    Orchestrator instance sharing the database, which is exactly what happens
+    when a paused run resumes in a new process.
+    """
+    tight_budget = RunBudget(max_replans=0, max_retries_per_task=0)
+    await database.runs.create(
+        RunRecord(
+            run_id="run_001",
+            goal="Compare technologies",
+            budget=tight_budget,
+            usage=RunUsage(llm_calls=17, tool_calls=9, retries=1, replans=1),
+        )
+    )
+
+    orchestrator = Orchestrator(database, planning_only_llm_factory(TASK_IDS))
+    await orchestrator._hydrate("run_001")
+
+    # Spend carries over rather than restarting at zero...
+    assert orchestrator._usage["run_001"].llm_calls == 17
+    assert orchestrator._usage["run_001"].retries == 1
+    # ...and so do the caps, instead of silently reverting to defaults.
+    assert orchestrator._budget("run_001").max_replans == 0
+    assert orchestrator._budget("run_001").max_retries_per_task == 0
+
+
+async def test_event_ids_do_not_restart_after_a_resume(database: Database) -> None:
+    await database.runs.create(RunRecord(run_id="run_001", goal="Compare technologies"))
+
+    first = Orchestrator(database, planning_only_llm_factory(TASK_IDS))
+    await first._hydrate("run_001")
+    await first._emit("run_001", "run.phase.changed")
+    await first._emit("run_001", "run.phase.changed")
+
+    # A different orchestrator picks the run back up.
+    second = Orchestrator(database, planning_only_llm_factory(TASK_IDS))
+    await second._hydrate("run_001")
+    await second._emit("run_001", "run.phase.changed")
+
+    events = await database.events.list("run_001")
+    event_ids = [event.event_id for _, event in events]
+    assert len(event_ids) == len(set(event_ids)), f"duplicate event ids: {event_ids}"
+    assert event_ids[-1].endswith("000003")
+
+
+async def test_usage_is_persisted_before_the_run_finishes(database: Database) -> None:
+    """A run paused mid-flight must already have its spend on record."""
+    await database.runs.create(RunRecord(run_id="run_001", goal="Compare technologies"))
+    orchestrator = Orchestrator(database, planning_only_llm_factory(TASK_IDS))
+    await orchestrator._hydrate("run_001")
+
+    orchestrator._increment_usage("run_001", llm_calls=4, tool_calls=2)
+    await orchestrator._set_phase("run_001", RunPhase.EXECUTING)
+
+    stored = await database.runs.get("run_001")
+    assert stored is not None
+    assert stored.usage.llm_calls == 4
+    assert stored.usage.tool_calls == 2

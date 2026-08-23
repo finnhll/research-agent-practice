@@ -6,7 +6,17 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, select
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    select,
+)
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -21,6 +31,7 @@ from research_report_agent.runtime_contracts import (
     AgentEvent,
     PlannedTaskRecord,
     ReportDocument,
+    RunBudget,
     RunPhase,
     RunRecord,
     RunStatus,
@@ -149,6 +160,15 @@ class RunRepository:
             if row is None:
                 raise LookupError(f"unknown run: {run_id}")
             row.usage = dump_model(usage)
+            row.updated_at = utc_now()
+            await session.commit()
+
+    async def set_budget(self, run_id: str, budget: RunBudget) -> None:
+        async with self._sessionmaker() as session:
+            row = await session.get(RunRow, run_id)
+            if row is None:
+                raise LookupError(f"unknown run: {run_id}")
+            row.budget = dump_model(budget)
             row.updated_at = utc_now()
             await session.commit()
 
@@ -313,6 +333,18 @@ class EventRepository:
                 .order_by(EventRow.sequence)
             )
             return [(row.sequence, AgentEvent.model_validate(row.event)) for row in rows]
+
+    async def count(self, run_id: str) -> int:
+        """How many events this run has already emitted.
+
+        Used to restore the orchestrator's event counter, so a resumed run
+        keeps numbering where it left off instead of re-issuing event_000001.
+        """
+        async with self._sessionmaker() as session:
+            total = await session.scalar(
+                select(func.count()).select_from(EventRow).where(EventRow.run_id == run_id)
+            )
+            return int(total or 0)
 
 
 class ReportRepository:
