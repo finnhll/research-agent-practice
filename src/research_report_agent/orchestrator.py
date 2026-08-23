@@ -773,6 +773,21 @@ class Orchestrator:
         await self._emit(run_id, "run.cancelled")
         await self._finish(run_id, RunStatus.CANCELLED)
 
+    def forget(self, run_id: str) -> None:
+        """Drop every trace of a run from memory.
+
+        The orchestrator keys seven dictionaries by run_id. Deleting a run from
+        the database without clearing them would leak the agent bundle (and its
+        LLM client) for the lifetime of the process.
+        """
+        self._agents.pop(run_id, None)
+        self._background_tasks.pop(run_id, None)
+        self._cancel_events.pop(run_id, None)
+        self._event_counters.pop(run_id, None)
+        self._usage.pop(run_id, None)
+        self._budgets.pop(run_id, None)
+        self._finished.discard(run_id)
+
     async def _hydrate(self, run_id: str) -> None:
         """Restore this run's counters from the database instead of zeroing them.
 

@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    delete,
     func,
     select,
     text,
@@ -214,6 +215,23 @@ class RunRepository:
             row.status = RunStatus.RUNNING.value
             row.updated_at = utc_now()
             await session.commit()
+
+    async def delete(self, run_id: str) -> bool:
+        """Delete a run and everything recorded under it. Irreversible.
+
+        Children go first: tasks, attempts, events and reports all carry a
+        foreign key to runs, so removing the run row on its own would either
+        fail or orphan them.
+        """
+        async with self._sessionmaker() as session:
+            row = await session.get(RunRow, run_id)
+            if row is None:
+                return False
+            for child in (ReportRow, EventRow, AttemptRow, TaskRow):
+                await session.execute(delete(child).where(child.run_id == run_id))
+            await session.delete(row)
+            await session.commit()
+            return True
 
     async def set_terminal(
         self,

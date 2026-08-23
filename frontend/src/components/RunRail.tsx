@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api";
 import type { Run } from "../types";
 import { statusTone, timeAgo } from "../lib/phases";
 
@@ -27,6 +30,7 @@ export default function RunRail({
   onSelect,
   onNew,
   onOpenSettings,
+  onDeleted,
   loading,
 }: {
   runs: Run[];
@@ -34,8 +38,22 @@ export default function RunRail({
   onSelect: (runId: string) => void;
   onNew: () => void;
   onOpenSettings: () => void;
+  onDeleted: (runId: string) => void;
   loading: boolean;
 }) {
+  // Deleting is irreversible and there is no undo, so the x only arms the
+  // action -- a second, differently-labelled click actually destroys it.
+  const [armed, setArmed] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const remove = useMutation({
+    mutationFn: (runId: string) => api.deleteRun(runId),
+    onSuccess: (_data, runId) => {
+      setArmed(null);
+      onDeleted(runId);
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
   const groups: Array<[string, Run[]]> = [];
   for (const run of runs) {
     const label = groupLabel(run.created_at);
@@ -70,23 +88,51 @@ export default function RunRail({
           <div key={label}>
             <div className="queue-label">{label}</div>
             {groupRuns.map((run) => (
-              <button
+              <div
                 key={run.run_id}
-                className={`run ${run.run_id === selectedId ? "on" : ""}`}
-                data-s={statusTone(run.status)}
-                aria-current={run.run_id === selectedId}
-                onClick={() => onSelect(run.run_id)}
+                className={`run-wrap ${armed === run.run_id ? "armed" : ""}`}
               >
-                <span className="run-goal">{run.goal}</span>
-                <span className="run-meta">
-                  {run.status === "running" || run.status === "awaiting_input" ? (
-                    <span className="pulse" />
-                  ) : null}
-                  {summarise(run)}
-                  <span className="dot" />
-                  {timeAgo(run.created_at)}
-                </span>
-              </button>
+                <button
+                  className={`run ${run.run_id === selectedId ? "on" : ""}`}
+                  data-s={statusTone(run.status)}
+                  aria-current={run.run_id === selectedId}
+                  onClick={() => onSelect(run.run_id)}
+                >
+                  <span className="run-goal">{run.goal}</span>
+                  <span className="run-meta">
+                    {run.status === "running" || run.status === "awaiting_input" ? (
+                      <span className="pulse" />
+                    ) : null}
+                    {summarise(run)}
+                    <span className="dot" />
+                    {timeAgo(run.created_at)}
+                  </span>
+                </button>
+
+                {armed === run.run_id ? (
+                  <span className="run-confirm">
+                    <button
+                      className="run-confirm-yes"
+                      disabled={remove.isPending}
+                      onClick={() => remove.mutate(run.run_id)}
+                    >
+                      {remove.isPending ? "Deleting…" : "Delete"}
+                    </button>
+                    <button className="run-confirm-no" onClick={() => setArmed(null)}>
+                      Keep
+                    </button>
+                  </span>
+                ) : run.status === "running" ? null : (
+                  <button
+                    className="run-x"
+                    aria-label={`Delete run: ${run.goal}`}
+                    title="Delete this run"
+                    onClick={() => setArmed(run.run_id)}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         ))}

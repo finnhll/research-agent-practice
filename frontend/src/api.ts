@@ -49,6 +49,15 @@ export const api = {
       body: JSON.stringify(update),
     });
   },
+  async deleteRun(runId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/api/runs/${runId}/permanent`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new Error(detail?.detail ?? `Request failed with ${response.status}`);
+    }
+  },
   listRuns(): Promise<Run[]> {
     return request<Run[]>("/api/runs");
   },

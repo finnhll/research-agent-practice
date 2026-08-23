@@ -466,3 +466,72 @@ async def test_autonomous_runs_are_not_gated() -> None:
 
     assert run["status"] == "complete"
     assert run["pending_gate"] is None
+
+
+async def test_deleting_a_run_removes_its_whole_record() -> None:
+    client, state = await make_client()
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "dimensions": ["cost"]},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+
+        # It has real children before the delete.
+        assert (await client.get(f"/api/runs/{run_id}/tasks")).json()
+        assert (await client.get(f"/api/runs/{run_id}/attempts")).json()
+        assert (await client.get(f"/api/runs/{run_id}/events")).json()["events"]
+        assert (await client.get(f"/api/runs/{run_id}/report")).status_code == 200
+
+        response = await client.delete(f"/api/runs/{run_id}/permanent")
+
+        assert response.status_code == 204
+        assert (await client.get(f"/api/runs/{run_id}")).status_code == 404
+        assert (await client.get(f"/api/runs/{run_id}/report")).status_code == 404
+        assert run_id not in [item["run_id"] for item in (await client.get("/api/runs")).json()]
+
+    # Nothing is left keyed by the run in the orchestrator's memory either.
+    assert run_id not in state.orchestrator._agents
+    assert run_id not in state.orchestrator._usage
+    assert run_id not in state.orchestrator._budgets
+    assert run_id not in state.orchestrator._event_counters
+
+
+async def test_deleting_refuses_while_a_run_is_still_active() -> None:
+    worker_started = asyncio.Event()
+
+    class SlowWorkerRuntime(StubWorkerRuntime):
+        async def execute_attempt(self, request, *, cancel_event=None):  # type: ignore[no-untyped-def]
+            worker_started.set()
+            await asyncio.sleep(30)
+            raise AssertionError("Slow worker should be cancelled")
+
+    database = Database.in_memory()
+    await database.create_schema()
+    orchestrator = Orchestrator(
+        database,
+        happy_path_llm_factory(TASK_IDS),
+        worker_runtime=SlowWorkerRuntime(),
+    )
+    app = create_app(database=database, orchestrator=orchestrator)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post("/api/runs", json={"goal": "Compare technologies"})
+        run_id = created.json()["run_id"]
+        await asyncio.wait_for(worker_started.wait(), timeout=30)
+
+        blocked = await client.delete(f"/api/runs/{run_id}/permanent")
+        assert blocked.status_code == 409
+
+        # Stopping it first makes the delete allowed.
+        await client.delete(f"/api/runs/{run_id}")
+        assert (await client.delete(f"/api/runs/{run_id}/permanent")).status_code == 204
+
+
+async def test_deleting_an_unknown_run_is_a_404() -> None:
+    client, _ = await make_client()
+    async with client:
+        response = await client.delete("/api/runs/run_nope/permanent")
+
+    assert response.status_code == 404

@@ -233,6 +233,28 @@ def create_app(
             raise HTTPException(status_code=404, detail="Run not found")
         return updated
 
+    @app.delete("/api/runs/{run_id}/permanent", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_run(run_id: str, db: DatabaseDep) -> Response:
+        """Delete a run and its whole record. Irreversible.
+
+        Separate from ``DELETE /api/runs/{id}``, which cancels: stopping a run
+        and destroying it are different intentions and must not share a route.
+        A run still in flight has to be stopped first, so its background task
+        cannot keep writing rows behind the delete.
+        """
+        run = await db.runs.get(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        if run.status is RunStatus.RUNNING:
+            raise HTTPException(
+                status_code=409,
+                detail="Run is still active -- stop it before deleting",
+            )
+
+        await db.runs.delete(run_id)
+        app.state.orchestrator.forget(run_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     @app.post("/api/runs/{run_id}/confirm", response_model=RunRecord)
     async def confirm_gate(
         run_id: str,

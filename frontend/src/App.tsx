@@ -108,6 +108,14 @@ export default function App() {
         onSelect={selectRun}
         onNew={openNew}
         onOpenSettings={() => setSettingsOpen(true)}
+        onDeleted={(runId) => {
+          // Deleting whatever is on screen has to leave somewhere valid.
+          if (runId === selectedId) {
+            setSelectedId(null);
+            setComposing(true);
+            setTraceOpen(false);
+          }
+        }}
         loading={runsQuery.isLoading}
       />
 
