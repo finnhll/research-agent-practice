@@ -125,7 +125,9 @@ always win over env vars.
 | `POST` | `/api/runs` | Create and start a research run |
 | `GET` | `/api/runs` | List runs |
 | `GET` | `/api/runs/{run_id}` | Get run state |
-| `DELETE` | `/api/runs/{run_id}` | Cancel an active run |
+| `DELETE` | `/api/runs/{run_id}` | Stop an active run (running, or parked on a gate) |
+| `DELETE` | `/api/runs/{run_id}/permanent` | Delete a run and its whole record |
+| `POST` | `/api/runs/{run_id}/confirm` | Answer a pending gate and resume the run |
 | `GET` | `/api/runs/{run_id}/tasks` | List planned tasks |
 | `GET` | `/api/runs/{run_id}/attempts` | List immutable worker attempts |
 | `GET` | `/api/runs/{run_id}/events` | Get event history |
