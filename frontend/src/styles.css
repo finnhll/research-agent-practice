@@ -5,98 +5,116 @@
    sits inside the machine. Serif = what the agent wrote,
    sans = what you operate, mono = what the machine measured. */
 :root {
-  --shell: #e9edf7;
-  --shell-2: #dee4f2;
-  --shell-3: #d1daed;
-  --paper: #fdfcf8;
-  --paper-2: #f5f2e9;
-  --ink: #141720;
-  --ink-2: #3f4859;
-  --ink-3: #5f687e;
-  --line: #cdd6e8;
-  --line-soft: #e3e9f5;
-  --line-paper: #e8e1d1;
-  --accent: #3346d1;
-  --accent-2: #4f60ec;
-  --accent-soft: #e5e9fe;
+  --shell: #f5f3fe;
+  --shell-2: #ece8fb;
+  --shell-3: #ded7f7;
+  --paper: #ffffff;
+  --paper-2: #f9f7ff;
+  --ink: #171327;
+  --ink-2: #4a4363;
+  --ink-3: #6f6890;
+  --line: #e3ddf6;
+  --line-soft: #f0ecfc;
+  --line-paper: #ebe6f8;
+  --accent: #6c4cf1;
+  --accent-2: #8368ff;
+  --accent-soft: #ece7ff;
   --on-accent: #ffffff;
-  --ok: #107847;
-  --ok-soft: #d9f3e4;
-  --warn: #955f02;
-  --warn-soft: #fdf0d6;
-  --crit: #c1361f;
-  --crit-soft: #fde6e0;
-  --stage-verify: #097e73;
-  --stage-verify-soft: #d5f3ef;
-  --stage-work: #3346d1;
-  --stage-work-soft: #e5e9fe;
-  --stage-make: #a06204;
-  --stage-make-soft: #fbeed8;
-  --shadow: 0 1px 2px rgba(20, 24, 31, 0.05), 0 8px 24px -12px rgba(20, 24, 31, 0.18);
+  --ok: #00a96e;
+  --ok-soft: #d7f7eb;
+  --warn: #f5a524;
+  --warn-soft: #fdf2da;
+  --crit: #f31260;
+  --crit-soft: #ffe3ec;
+  --stage-verify: #00b8a0;
+  --stage-verify-soft: #d3f7f1;
+  --stage-work: #6c4cf1;
+  --stage-work-soft: #ece7ff;
+  --stage-make: #ff6b3d;
+  --stage-make-soft: #ffe7df;
+  --ok-ink: #007b50;
+  --warn-ink: #986007;
+  --crit-ink: #cd0a4e;
+  --stage-verify-ink: #00806f;
+  --stage-make-ink: #db3400;
+  --stage-work-ink: #5b3ce0;
+  --shadow: 0 1px 2px rgba(60, 40, 140, 0.06), 0 8px 24px -12px rgba(60, 40, 140, 0.16);
   --radius: 7px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --shell: #0d1016;
-    --shell-2: #141924;
-    --shell-3: #1c2331;
-    --paper: #171c26;
-    --paper-2: #1d2431;
-    --ink: #eaedf4;
-    --ink-2: #aeb7c8;
-    --ink-3: #7e889d;
-    --line: #2a3242;
-    --line-soft: #202634;
-    --line-paper: #2d3444;
-    --accent: #8b9cff;
-    --accent-2: #adb9ff;
-    --accent-soft: #1b2352;
-    --on-accent: #0d1016;
-    --ok: #3fd08a;
-    --ok-soft: #0e3524;
-    --warn: #f0b443;
-    --warn-soft: #352911;
-    --crit: #ff7d64;
-    --crit-soft: #3d1e17;
-    --stage-verify: #2fd2be;
-    --stage-verify-soft: #0b3833;
-    --stage-work: #8b9cff;
-    --stage-work-soft: #1b2352;
-    --stage-make: #f0ae3c;
-    --stage-make-soft: #352911;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+    --shell: #100d1c;
+    --shell-2: #171328;
+    --shell-3: #221c3a;
+    --paper: #191430;
+    --paper-2: #201a3c;
+    --ink: #f1eeff;
+    --ink-2: #b5add8;
+    --ink-3: #8a82ae;
+    --line: #2f284b;
+    --line-soft: #241e3e;
+    --line-paper: #332b54;
+    --accent: #a78bff;
+    --accent-2: #c2b0ff;
+    --accent-soft: #261e49;
+    --on-accent: #100d1c;
+    --ok: #3ee89f;
+    --ok-soft: #0d3428;
+    --warn: #ffc555;
+    --warn-soft: #342810;
+    --crit: #ff5c8a;
+    --crit-soft: #3b1527;
+    --stage-verify: #2fe8cd;
+    --stage-verify-soft: #0b342f;
+    --stage-work: #a78bff;
+    --stage-work-soft: #261e49;
+    --stage-make: #ff8f66;
+    --stage-make-soft: #3b2015;
+    --ok-ink: #3ee89f;
+    --warn-ink: #ffc555;
+    --crit-ink: #ff5c8a;
+    --stage-verify-ink: #2fe8cd;
+    --stage-make-ink: #ff8f66;
+    --stage-work-ink: #a78bff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
 :root[data-theme="dark"] {
-  --shell: #0d1016;
-  --shell-2: #141924;
-  --shell-3: #1c2331;
-  --paper: #171c26;
-  --paper-2: #1d2431;
-  --ink: #eaedf4;
-  --ink-2: #aeb7c8;
-  --ink-3: #7e889d;
-  --line: #2a3242;
-  --line-soft: #202634;
-  --line-paper: #2d3444;
-  --accent: #8b9cff;
-  --accent-2: #adb9ff;
-  --accent-soft: #1b2352;
-  --on-accent: #0d1016;
-  --ok: #3fd08a;
-  --ok-soft: #0e3524;
-  --warn: #f0b443;
-  --warn-soft: #352911;
-  --crit: #ff7d64;
-  --crit-soft: #3d1e17;
-  --stage-verify: #2fd2be;
-  --stage-verify-soft: #0b3833;
-  --stage-work: #8b9cff;
-  --stage-work-soft: #1b2352;
-  --stage-make: #f0ae3c;
-  --stage-make-soft: #352911;
+  --shell: #100d1c;
+  --shell-2: #171328;
+  --shell-3: #221c3a;
+  --paper: #191430;
+  --paper-2: #201a3c;
+  --ink: #f1eeff;
+  --ink-2: #b5add8;
+  --ink-3: #8a82ae;
+  --line: #2f284b;
+  --line-soft: #241e3e;
+  --line-paper: #332b54;
+  --accent: #a78bff;
+  --accent-2: #c2b0ff;
+  --accent-soft: #261e49;
+  --on-accent: #100d1c;
+  --ok: #3ee89f;
+  --ok-soft: #0d3428;
+  --warn: #ffc555;
+  --warn-soft: #342810;
+  --crit: #ff5c8a;
+  --crit-soft: #3b1527;
+  --stage-verify: #2fe8cd;
+  --stage-verify-soft: #0b342f;
+  --stage-work: #a78bff;
+  --stage-work-soft: #261e49;
+  --stage-make: #ff8f66;
+  --stage-make-soft: #3b2015;
+  --ok-ink: #3ee89f;
+  --warn-ink: #ffc555;
+  --crit-ink: #ff5c8a;
+  --stage-verify-ink: #2fe8cd;
+  --stage-make-ink: #ff8f66;
+  --stage-work-ink: #a78bff;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
 }
 
@@ -148,7 +166,7 @@ a {
 }
 
 .error {
-  color: var(--crit);
+  color: var(--crit-ink);
   font-size: 13px;
 }
 
@@ -419,7 +437,7 @@ a {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 8px 28px -8px rgba(20, 24, 31, 0.3);
+  box-shadow: 0 8px 28px -8px rgba(60, 40, 140, 0.26);
   padding: 5px;
 }
 
@@ -473,7 +491,7 @@ a {
   border-radius: 5px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--crit);
+  color: var(--crit-ink);
 }
 
 .ctx-danger:hover:not(:disabled) {
@@ -492,7 +510,7 @@ a {
 }
 
 .ctx-error {
-  color: var(--crit);
+  color: var(--crit-ink);
 }
 
 /* ── workspace ────────────────────────────────────── */
@@ -558,7 +576,7 @@ a {
 }
 
 .tbtn.stop {
-  color: var(--crit);
+  color: var(--crit-ink);
 }
 
 .tbtn:disabled {
@@ -626,15 +644,15 @@ a {
 }
 
 .status-badge.complete {
-  color: var(--ok);
+  color: var(--ok-ink);
   background: var(--ok-soft);
 }
 .status-badge.caveats {
-  color: var(--warn);
+  color: var(--warn-ink);
   background: var(--warn-soft);
 }
 .status-badge.blocked {
-  color: var(--crit);
+  color: var(--crit-ink);
   background: var(--crit-soft);
 }
 
@@ -894,7 +912,7 @@ a {
 
 .stage[data-st="done"] .tick {
   background: var(--ok);
-  border-color: var(--ok);
+  border-color: var(--ok-ink);
 }
 
 .stage[data-st="done"] .tick::after {
@@ -970,27 +988,30 @@ a {
    grouping is the information. */
 .stage[data-h="verify"] {
   --stage: var(--stage-verify);
+  --stage-ink: var(--stage-verify-ink);
   --stage-soft: var(--stage-verify-soft);
 }
 
 .stage[data-h="work"] {
   --stage: var(--stage-work);
+  --stage-ink: var(--stage-work-ink);
   --stage-soft: var(--stage-work-soft);
 }
 
 .stage[data-h="make"] {
   --stage: var(--stage-make);
+  --stage-ink: var(--stage-make-ink);
   --stage-soft: var(--stage-make-soft);
 }
 
 .stage[data-st="done"] .tick {
   background: var(--stage);
-  border-color: var(--stage);
+  border-color: var(--stage-ink);
 }
 
 .stage[data-st="now"] .tick,
 .stage[data-st="paused"] .tick {
-  border-color: var(--stage);
+  border-color: var(--stage-ink);
 }
 
 .stage[data-st="now"] .tick::after,
@@ -1000,7 +1021,7 @@ a {
 
 .stage[data-st="now"] .stage-sub,
 .stage[data-st="paused"] .stage-sub {
-  color: var(--stage);
+  color: var(--stage-ink);
 }
 
 .stage[data-st="now"],
@@ -1076,7 +1097,7 @@ a {
 }
 
 .wrow[data-s="retry"] .wstat {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 
 .prog-foot {
@@ -1094,7 +1115,7 @@ a {
   margin: 0;
   padding: 8px 16px;
   background: var(--warn-soft);
-  color: var(--warn);
+  color: var(--warn-ink);
   font-size: 12px;
   border-top: 1px solid var(--line-soft);
 }
@@ -1408,7 +1429,7 @@ a {
 }
 
 .blocked .why b {
-  color: var(--crit);
+  color: var(--crit-ink);
   display: block;
   font-size: 10.5px;
   letter-spacing: 0.07em;
@@ -1493,7 +1514,7 @@ a {
 }
 
 .focus-counter.at-limit {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 
 .composer-dimensions {
@@ -1790,7 +1811,7 @@ a {
 }
 
 .pill.completed {
-  color: var(--ok);
+  color: var(--ok-ink);
   background: var(--ok-soft);
 }
 
@@ -1802,7 +1823,7 @@ a {
 
 .pill.failed,
 .pill.blocked {
-  color: var(--crit);
+  color: var(--crit-ink);
   background: var(--crit-soft);
 }
 
@@ -1853,7 +1874,7 @@ a {
 }
 
 .problem-top .tid {
-  color: var(--crit);
+  color: var(--crit-ink);
   font-weight: 600;
 }
 
@@ -1876,12 +1897,12 @@ a {
 }
 
 .log li.bad::before {
-  border-color: var(--crit);
+  border-color: var(--crit-ink);
   background: var(--crit);
 }
 
 .log li.bad .ev {
-  color: var(--crit);
+  color: var(--crit-ink);
 }
 
 .log {
@@ -1939,7 +1960,7 @@ a {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(20, 24, 31, 0.42);
+  background: rgba(30, 20, 70, 0.45);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -2069,7 +2090,7 @@ a {
 
 .ok-note,
 .test-ok {
-  color: var(--ok);
+  color: var(--ok-ink);
   font-size: 12.5px;
 }
 
@@ -2128,7 +2149,7 @@ a {
     position: fixed;
     inset: 0;
     z-index: 25;
-    background: rgba(20, 24, 31, 0.35);
+    background: rgba(30, 20, 70, 0.4);
     border: none;
   }
   .railtoggle {
