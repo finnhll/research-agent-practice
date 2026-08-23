@@ -247,6 +247,9 @@ class RunRepository:
             now = utc_now()
             row.phase = RunPhase.TERMINAL.value
             row.status = status.value
+            # A terminal run has no open question. Leaving a gate behind would
+            # let a stopped run be resumed through it.
+            row.pending_gate = None
             row.error = error
             row.updated_at = now
             row.completed_at = now

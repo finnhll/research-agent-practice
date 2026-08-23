@@ -535,3 +535,28 @@ async def test_deleting_an_unknown_run_is_a_404() -> None:
         response = await client.delete("/api/runs/run_nope/permanent")
 
     assert response.status_code == 404
+
+
+async def test_a_run_parked_at_a_gate_can_be_stopped() -> None:
+    """A gated run is not RUNNING, but it is still open and must be stoppable.
+
+    It holds planned tasks and resumes the moment it is answered, so leaving
+    delete as the only way out of a gate would be wrong.
+    """
+    client, state = await _guided_client()
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "mode": "guided"},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+        assert (await client.get(f"/api/runs/{run_id}")).json()["status"] == "awaiting_input"
+
+        stopped = await client.delete(f"/api/runs/{run_id}")
+
+        assert stopped.status_code == 200
+        assert stopped.json()["status"] == "cancelled"
+
+        # And it stays stopped -- confirming it afterwards is refused.
+        assert (await client.post(f"/api/runs/{run_id}/confirm", json={})).status_code == 409

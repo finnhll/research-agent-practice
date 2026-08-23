@@ -14,6 +14,11 @@ function groupLabel(iso: string): string {
   return sameDay ? "Today" : "Earlier";
 }
 
+/** Running, or parked at a gate: idle but still open and resumable. */
+function isStoppable(run: Run): boolean {
+  return run.status === "running" || run.status === "awaiting_input";
+}
+
 function summarise(run: Run): string {
   if (run.status === "running") return "Working";
   if (run.status === "awaiting_input") return "Needs your OK";
@@ -47,14 +52,40 @@ export default function RunRail({
   const [menu, setMenu] = useState<{ run: Run; x: number; y: number } | null>(null);
   const queryClient = useQueryClient();
 
+  const refresh = (runId: string) => {
+    queryClient.invalidateQueries({ queryKey: ["runs"] });
+    queryClient.invalidateQueries({ queryKey: ["run", runId] });
+  };
+
   const remove = useMutation({
     mutationFn: (runId: string) => api.deleteRun(runId),
     onSuccess: (_data, runId) => {
       setMenu(null);
       onDeleted(runId);
-      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      refresh(runId);
     },
   });
+
+  const stop = useMutation({
+    mutationFn: (runId: string) => api.cancelRun(runId),
+    onSuccess: (_data, runId) => {
+      setMenu(null);
+      refresh(runId);
+    },
+  });
+
+  const startAgain = useMutation({
+    mutationFn: (runId: string) => api.restartRun(runId),
+    onSuccess: (fresh) => {
+      setMenu(null);
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      // Restart produces a new run, so move the user to the one now working.
+      onSelect(fresh.run_id);
+    },
+  });
+
+  const busy = remove.isPending || stop.isPending || startAgain.isPending;
+  const menuError = (remove.error ?? stop.error ?? startAgain.error) as Error | null;
 
   // Anything that moves the menu away from what it points at closes it.
   useEffect(() => {
@@ -162,22 +193,48 @@ export default function RunRail({
           <div className="ctx-title" title={menu.run.goal}>
             {menu.run.goal}
           </div>
+
+          <button
+            type="button"
+            role="menuitem"
+            className="ctx-item"
+            // Only a run that is actually going can be stopped -- including one
+            // parked at a gate, which is idle but still open.
+            disabled={busy || !isStoppable(menu.run)}
+            onClick={() => stop.mutate(menu.run.run_id)}
+          >
+            {stop.isPending ? "Stopping…" : "Stop"}
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            className="ctx-item"
+            // Restart creates a fresh run from the same question rather than
+            // resuming this one, so it makes no sense while this one is live.
+            disabled={busy || isStoppable(menu.run)}
+            title="Runs the same question again as a new run"
+            onClick={() => startAgain.mutate(menu.run.run_id)}
+          >
+            {startAgain.isPending ? "Starting…" : "Start again"}
+          </button>
+
+          <div className="ctx-sep" />
+
+          <button
+            type="button"
+            role="menuitem"
+            className="ctx-danger"
+            disabled={busy || menu.run.status === "running"}
+            onClick={() => remove.mutate(menu.run.run_id)}
+          >
+            {remove.isPending ? "Deleting…" : "Delete run"}
+          </button>
+
           {menu.run.status === "running" ? (
-            <div className="ctx-note">Still running — stop it before deleting.</div>
-          ) : (
-            <button
-              type="button"
-              role="menuitem"
-              className="ctx-danger"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate(menu.run.run_id)}
-            >
-              {remove.isPending ? "Deleting…" : "Delete run"}
-            </button>
-          )}
-          {remove.isError ? (
-            <div className="ctx-note ctx-error">{(remove.error as Error).message}</div>
+            <div className="ctx-note">Stop it before deleting.</div>
           ) : null}
+          {menuError ? <div className="ctx-note ctx-error">{menuError.message}</div> : null}
         </div>
       ) : null}
     </aside>

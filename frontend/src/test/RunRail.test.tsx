@@ -5,7 +5,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import RunRail from "../components/RunRail";
 import type { Run } from "../types";
 
-const mocks = vi.hoisted(() => ({ deleteRun: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  deleteRun: vi.fn(),
+  cancelRun: vi.fn(),
+  restartRun: vi.fn(),
+}));
 
 vi.mock("../api", () => ({
   api: mocks,
@@ -40,14 +44,14 @@ function run(overrides: Partial<Run> = {}): Run {
   } as Run;
 }
 
-function renderRail(runs: Run[], onDeleted = vi.fn()) {
+function renderRail(runs: Run[], onDeleted = vi.fn(), onSelect = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <RunRail
         runs={runs}
         selectedId="run_001"
-        onSelect={vi.fn()}
+        onSelect={onSelect}
         onNew={vi.fn()}
         onOpenSettings={vi.fn()}
         onDeleted={onDeleted}
@@ -62,6 +66,10 @@ describe("RunRail delete", () => {
   beforeEach(() => {
     mocks.deleteRun.mockReset();
     mocks.deleteRun.mockResolvedValue(undefined);
+    mocks.cancelRun.mockReset();
+    mocks.cancelRun.mockResolvedValue({});
+    mocks.restartRun.mockReset();
+    mocks.restartRun.mockResolvedValue({ run_id: "run_002" });
   });
 
   it("offers no delete affordance until the card is right-clicked", () => {
@@ -112,7 +120,7 @@ describe("RunRail delete", () => {
     expect(mocks.deleteRun).not.toHaveBeenCalled();
   });
 
-  it("refuses to offer delete while a run is still going", async () => {
+  it("offers Stop but not Start or Delete while a run is going", async () => {
     const user = userEvent.setup();
     renderRail([run({ status: "running" })]);
 
@@ -121,7 +129,53 @@ describe("RunRail delete", () => {
       target: screen.getByText("Compare battery chemistries"),
     });
 
-    expect(screen.queryByRole("menuitem", { name: /delete run/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^stop$/i })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: /start again/i })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: /delete run/i })).toBeDisabled();
     expect(screen.getByText(/stop it before deleting/i)).toBeInTheDocument();
+  });
+
+  it("offers Start again and Delete but not Stop once a run is finished", async () => {
+    const user = userEvent.setup();
+    renderRail([run({ status: "complete" })]);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+
+    expect(screen.getByRole("menuitem", { name: /^stop$/i })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: /start again/i })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: /delete run/i })).toBeEnabled();
+  });
+
+  it("treats a run parked at a gate as stoppable", async () => {
+    const user = userEvent.setup();
+    renderRail([run({ status: "awaiting_input" })]);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+    await user.click(screen.getByRole("menuitem", { name: /^stop$/i }));
+
+    expect(mocks.cancelRun).toHaveBeenCalledWith("run_001");
+  });
+
+  it("moves to the new run when Start again is chosen", async () => {
+    const user = userEvent.setup();
+    mocks.restartRun.mockResolvedValue({ run_id: "run_002" });
+    const onSelect = vi.fn();
+    renderRail([run({ status: "complete" })], vi.fn(), onSelect);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByText("Compare battery chemistries"),
+    });
+    await user.click(screen.getByRole("menuitem", { name: /start again/i }));
+
+    expect(mocks.restartRun).toHaveBeenCalledWith("run_001");
+    // Restart makes a different run, so the workspace has to follow it.
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledWith("run_002"));
   });
 });

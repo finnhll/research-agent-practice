@@ -225,7 +225,9 @@ def create_app(
         run = await app.state.database.runs.get(run_id)
         if run is None:
             raise HTTPException(status_code=404, detail="Run not found")
-        if run.status is not RunStatus.RUNNING:
+        # A run parked at a gate is not RUNNING but is very much still open --
+        # it holds tasks and will resume the moment it is answered.
+        if run.status not in {RunStatus.RUNNING, RunStatus.AWAITING_INPUT}:
             raise HTTPException(status_code=409, detail="Run is not active")
         await app.state.orchestrator.cancel(run.run_id)
         updated = await app.state.database.runs.get(run.run_id)
@@ -269,7 +271,7 @@ def create_app(
         run = await db.runs.get(run_id)
         if run is None:
             raise HTTPException(status_code=404, detail="Run not found")
-        if run.pending_gate is None:
+        if run.status is not RunStatus.AWAITING_INPUT or run.pending_gate is None:
             raise HTTPException(status_code=409, detail="Run is not waiting for input")
 
         payload = run.pending_gate.payload

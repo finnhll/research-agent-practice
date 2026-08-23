@@ -211,13 +211,20 @@ class Orchestrator:
 
         cancel_event = self._cancel_events.get(run_id)
         task = self._background_tasks.get(run_id)
-        if cancel_event is None or task is None:
+        if cancel_event is None and task is None:
             return False
 
-        cancel_event.set()
-        if not task.done():
+        if cancel_event is not None:
+            cancel_event.set()
+        if task is not None and not task.done():
             task.cancel()
             await asyncio.wait({task})
+
+        # A run parked at a gate has already ended its supervisor loop, so it is
+        # in _finished and _finish would no-op. Cancelling is an explicit
+        # terminal decision by the user, so it has to win over that guard --
+        # otherwise a parked run can only ever be deleted, never stopped.
+        self._finished.discard(run_id)
         await self._persist_cancellation(run_id)
         return True
 
