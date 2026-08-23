@@ -37,7 +37,12 @@ export const api = {
   },
   confirmGate(
     runId: string,
-    update: { goal?: string; dimensions?: string[] } = {},
+    update: {
+      goal?: string;
+      dimensions?: string[];
+      decision?: "accept" | "rewrite";
+      instruction?: string;
+    } = {},
   ): Promise<Run> {
     return request<Run>(`/api/runs/${runId}/confirm`, {
       method: "POST",

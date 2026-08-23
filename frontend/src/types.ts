@@ -27,6 +27,10 @@ export interface PendingGate {
     assumptions?: string[];
     suggested_dimensions?: string[];
     dimensions?: string[];
+    // confirm_report
+    report_id?: string;
+    title?: string;
+    revised?: boolean;
   };
   created_at: string;
 }

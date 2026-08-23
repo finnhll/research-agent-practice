@@ -9,7 +9,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +52,10 @@ class GateConfirmRequest(BaseModel):
 
     goal: str | None = Field(default=None, min_length=3, max_length=2000)
     dimensions: list[str] | None = Field(default=None, max_length=5)
+    # Report gate only: "accept" delivers the draft, "rewrite" re-writes it from
+    # the findings already gathered -- one model call and no new searches.
+    decision: Literal["accept", "rewrite"] = "accept"
+    instruction: str | None = Field(default=None, max_length=1000)
 
 
 class EventListResponse(BaseModel):
@@ -247,12 +251,24 @@ def create_app(
             raise HTTPException(status_code=409, detail="Run is not waiting for input")
 
         payload = run.pending_gate.payload
-        goal = request.goal or str(payload.get("rewritten_goal") or run.goal)
-        dimensions = (
-            request.dimensions
-            if request.dimensions is not None
-            else list(payload.get("dimensions") or run.dimensions)
-        )
+        kind = run.pending_gate.kind
+
+        if kind == "confirm_report":
+            goal, dimensions = run.goal, list(run.dimensions)
+            rewriting = request.decision == "rewrite"
+            # Accepting re-enters at the final guardrail; rewriting re-enters at
+            # synthesis, which reloads the findings already on record rather
+            # than researching anything again.
+            resume_from = "synthesize" if rewriting else "final_guardrail"
+            instruction = request.instruction if rewriting else None
+        else:
+            goal = request.goal or str(payload.get("rewritten_goal") or run.goal)
+            dimensions = (
+                request.dimensions
+                if request.dimensions is not None
+                else list(payload.get("dimensions") or run.dimensions)
+            )
+            resume_from, instruction = "plan", None
 
         await db.runs.close_gate(run_id, goal=goal, dimensions=dimensions)
         try:
@@ -261,7 +277,8 @@ def create_app(
                 goal,
                 dimensions,
                 mode=run.mode,
-                resume_from="plan",
+                resume_from=resume_from,
+                revision_instruction=instruction,
             )
         except LLMError as exc:
             await db.runs.set_terminal(run_id, RunStatus.FAILED, error=str(exc))

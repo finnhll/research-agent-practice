@@ -600,6 +600,11 @@ a {
   outline: none;
 }
 
+.gate-edit-plain {
+  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+}
+
 .gate-diff {
   margin: 0 0 12px;
   font-size: 12.5px;

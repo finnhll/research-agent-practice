@@ -241,6 +241,31 @@ def happy_path_llm_factory(task_ids: list[str]):
     return factory
 
 
+def rewrite_llm_factory(task_ids: list[str]):
+    """Scripts a guided run that is asked to rewrite its report once.
+
+    The rewrite needs a second report draft before the final guardrail, which a
+    single linear happy-path script cannot also serve.
+    """
+
+    def factory() -> FakeLLMClient:
+        accept = make_critic_review(task_ids, CriticVerdict.ACCEPT)
+        return FakeLLMClient(
+            [
+                make_intake_review(allow=True),
+                make_clarified_goal(),
+                make_plan(task_ids),
+                accept,
+                accept,
+                make_report_draft(),
+                make_report_draft(),
+                make_final_review(),
+            ]
+        )
+
+    return factory
+
+
 def failing_llm_factory(task_ids: list[str]):
     """A ``llm_factory`` that scripts a plan whose critic finds no usable evidence."""
 
@@ -292,4 +317,5 @@ __all__ = [
     "make_plan",
     "make_report_draft",
     "planning_only_llm_factory",
+    "rewrite_llm_factory",
 ]

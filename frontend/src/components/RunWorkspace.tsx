@@ -5,6 +5,7 @@ import type { Run } from "../types";
 import { STATUS_LABELS, isTerminal, statusTone } from "../lib/phases";
 import ConfirmGate from "./ConfirmGate";
 import Inspector from "./Inspector";
+import ReportGate from "./ReportGate";
 import ProgressSpine from "./ProgressSpine";
 import ReportViewer from "./ReportViewer";
 
@@ -59,7 +60,10 @@ export default function RunWorkspace({
   const reportQuery = useQuery({
     queryKey: ["run-data", runId, "report"],
     queryFn: () => api.getReport(runId),
-    enabled: !active,
+    // Also while parked at the report gate: the whole point is to decide with
+    // the draft in front of you.
+    enabled: !active || waiting,
+    refetchInterval: waiting ? 2000 : false,
     retry: false,
   });
 
@@ -152,8 +156,11 @@ export default function RunWorkspace({
               </div>
             ) : null}
 
-            {waiting && run.pending_gate ? (
+            {waiting && run.pending_gate?.kind === "confirm_question" ? (
               <ConfirmGate runId={runId} gate={run.pending_gate} />
+            ) : null}
+            {waiting && run.pending_gate?.kind === "confirm_report" ? (
+              <ReportGate runId={runId} gate={run.pending_gate} />
             ) : null}
 
             {blocked ? (

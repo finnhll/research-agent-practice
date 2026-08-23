@@ -50,6 +50,7 @@ class SupervisorState(TypedDict, total=False):
     dimensions: list[str]
     resume_from: str
     mode: str
+    revision_instruction: str | None
     route: str
     blocked_reason: str | None
     execution_error: str | None
@@ -112,7 +113,12 @@ class Orchestrator:
         graph.add_conditional_edges(
             START,
             self._route_entry,
-            {"intake_guardrail": "intake_guardrail", "plan": "plan"},
+            {
+                "intake_guardrail": "intake_guardrail",
+                "plan": "plan",
+                "synthesize": "synthesize",
+                "final_guardrail": "final_guardrail",
+            },
         )
         graph.add_conditional_edges(
             "intake_guardrail",
@@ -131,7 +137,11 @@ class Orchestrator:
             self._route_after_review,
             {"synthesize": "synthesize", "end": END},
         )
-        graph.add_edge("synthesize", "final_guardrail")
+        graph.add_conditional_edges(
+            "synthesize",
+            self._route_after_synthesis,
+            {"final_guardrail": "final_guardrail", "end": END},
+        )
         graph.add_edge("final_guardrail", END)
         return graph.compile()
 
@@ -143,6 +153,7 @@ class Orchestrator:
         *,
         mode: RunMode = RunMode.AUTONOMOUS,
         resume_from: str = "intake_guardrail",
+        revision_instruction: str | None = None,
     ) -> None:
         """Start (or resume) a run in the background without blocking the request.
 
@@ -177,7 +188,14 @@ class Orchestrator:
         # the database first, so a run that resumes keeps the spend it already
         # incurred. See _hydrate.
         self._background_tasks[run_id] = asyncio.create_task(
-            self._run_supervisor(run_id, goal, dimensions, mode=mode, resume_from=resume_from),
+            self._run_supervisor(
+                run_id,
+                goal,
+                dimensions,
+                mode=mode,
+                resume_from=resume_from,
+                revision_instruction=revision_instruction,
+            ),
             name=f"research-run-{run_id}",
         )
 
@@ -211,6 +229,7 @@ class Orchestrator:
         *,
         mode: RunMode = RunMode.AUTONOMOUS,
         resume_from: str = "intake_guardrail",
+        revision_instruction: str | None = None,
     ) -> None:
         try:
             await self._hydrate(run_id)
@@ -221,6 +240,7 @@ class Orchestrator:
                     "dimensions": dimensions,
                     "mode": mode.value,
                     "resume_from": resume_from,
+                    "revision_instruction": revision_instruction,
                 }
             )
         except asyncio.CancelledError:
@@ -367,26 +387,75 @@ class Orchestrator:
     def _route_after_review(self, state: SupervisorState) -> str:
         return state.get("route", "end")
 
+    def _route_after_synthesis(self, state: SupervisorState) -> str:
+        return "end" if state.get("route") == "end" else "final_guardrail"
+
     async def _node_synthesize(self, state: SupervisorState) -> dict[str, Any]:
         run_id = state["run_id"]
         await self._set_phase(run_id, RunPhase.SYNTHESIZING)
+
+        # Entering here directly (a rewrite coming back from the report gate)
+        # means the graph has no results in memory -- rebuild them from the
+        # attempts already on record rather than researching again.
+        results = state.get("results") or await self._load_results(run_id)
+
         report = await self._agents[run_id].synthesizer.synthesize(
             run_id=run_id,
             goal=state["goal"],
-            results=state.get("results", []),
+            results=results,
             dimensions=state.get("dimensions", []),
+            revision_instruction=state.get("revision_instruction"),
         )
+        self._increment_usage(run_id, llm_calls=1)
         await self.database.reports.save(report)
         await self._emit(
             run_id,
             "synthesis.completed",
             data={"report_id": report.report_id},
         )
-        return {"report": report}
+
+        if state.get("mode") != RunMode.GUIDED.value:
+            return {"report": report, "results": results}
+
+        await self._flush_usage(run_id)
+        await self.database.runs.open_gate(
+            run_id,
+            PendingGate(
+                kind="confirm_report",
+                payload={
+                    "report_id": report.report_id,
+                    "title": report.title,
+                    "revised": bool(state.get("revision_instruction")),
+                },
+            ),
+            RunPhase.AWAITING_REPORT_REVIEW,
+        )
+        await self._emit(run_id, "gate.opened", data={"kind": "confirm_report"})
+        self._finished.add(run_id)
+        return {"report": report, "results": results, "route": "end"}
+
+    async def _load_results(self, run_id: str) -> list[WorkerResult]:
+        """Rebuild worker results from the attempts already on record.
+
+        The attempts table is the durable copy of what the workers found, so a
+        run re-entering at synthesis reads it back instead of re-researching.
+        Only the newest attempt per task counts -- earlier ones were superseded
+        by a retry or a critic revision.
+        """
+        latest: dict[str, WorkerResult] = {}
+        for attempt in await self.database.attempts.list(run_id):
+            if attempt.result is not None:
+                latest[attempt.task_id] = attempt.result
+        return list(latest.values())
 
     async def _node_final_guardrail(self, state: SupervisorState) -> dict[str, Any]:
         run_id = state["run_id"]
-        report = state["report"]
+        # A run resuming from the report gate re-enters here with nothing in
+        # memory; the saved report is the thing the user just accepted.
+        report = state.get("report") or await self.database.reports.get(run_id)
+        if report is None:
+            await self._finish(run_id, RunStatus.FAILED, error="No report to deliver")
+            return {"route": "end"}
         await self._set_phase(run_id, RunPhase.FINAL_GUARDRAIL)
         review = await self._agents[run_id].final_guardrail.review_markdown(run_id, report.markdown)
 

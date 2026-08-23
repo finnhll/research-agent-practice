@@ -33,6 +33,7 @@ class RunPhase(StrEnum):
     REVISING = "revising"
     REPLANNING = "replanning"
     SYNTHESIZING = "synthesizing"
+    AWAITING_REPORT_REVIEW = "awaiting_report_review"
     REPORT_REPAIR = "report_repair"
     FINAL_GUARDRAIL = "final_guardrail"
     FINALIZING = "finalizing"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from httpx import ASGITransport, AsyncClient
-from tests.fakes import StubWorkerRuntime, happy_path_llm_factory
+from tests.fakes import StubWorkerRuntime, happy_path_llm_factory, rewrite_llm_factory
 
 from research_report_agent.api import create_app
 from research_report_agent.orchestrator import Orchestrator
@@ -348,7 +348,7 @@ async def test_guided_run_pauses_for_confirmation_before_planning() -> None:
     assert tasks == []
 
 
-async def test_confirming_a_gate_resumes_the_run_to_completion() -> None:
+async def test_a_guided_run_stops_at_both_gates_then_completes() -> None:
     client, state = await _guided_client()
     async with client:
         created = await client.post(
@@ -358,15 +358,69 @@ async def test_confirming_a_gate_resumes_the_run_to_completion() -> None:
         run_id = created.json()["run_id"]
         await state.orchestrator.wait(run_id)
 
-        resumed = await client.post(f"/api/runs/{run_id}/confirm", json={})
+        # Gate 1: the question.
+        first = (await client.get(f"/api/runs/{run_id}")).json()
+        assert first["pending_gate"]["kind"] == "confirm_question"
+
+        await client.post(f"/api/runs/{run_id}/confirm", json={})
+        await state.orchestrator.wait(run_id)
+
+        # Gate 2: the finished report, before it is delivered.
+        second = (await client.get(f"/api/runs/{run_id}")).json()
+        assert second["status"] == "awaiting_input"
+        assert second["phase"] == "awaiting_report_review"
+        assert second["pending_gate"]["kind"] == "confirm_report"
+        # The draft is already readable while parked.
+        assert (await client.get(f"/api/runs/{run_id}/report")).status_code == 200
+
+        accepted = await client.post(f"/api/runs/{run_id}/confirm", json={"decision": "accept"})
         await state.orchestrator.wait(run_id)
         run = (await client.get(f"/api/runs/{run_id}")).json()
-        report = await client.get(f"/api/runs/{run_id}/report")
 
-    assert resumed.status_code == 200
+    assert accepted.status_code == 200
     assert run["status"] == "complete"
     assert run["pending_gate"] is None
-    assert report.status_code == 200
+
+
+async def test_rewriting_a_report_reuses_the_findings_without_researching_again() -> None:
+    database = Database.in_memory()
+    await database.create_schema()
+    orchestrator = Orchestrator(
+        database,
+        rewrite_llm_factory(TASK_IDS),
+        worker_runtime=StubWorkerRuntime(),
+    )
+    app = create_app(database=database, orchestrator=orchestrator)
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    state = app.state
+    async with client:
+        created = await client.post(
+            "/api/runs",
+            json={"goal": "Compare technologies", "mode": "guided"},
+        )
+        run_id = created.json()["run_id"]
+        await state.orchestrator.wait(run_id)
+        await client.post(f"/api/runs/{run_id}/confirm", json={})
+        await state.orchestrator.wait(run_id)
+
+        attempts_before = len((await client.get(f"/api/runs/{run_id}/attempts")).json())
+        searches_before = (await client.get(f"/api/runs/{run_id}")).json()["usage"]["tool_calls"]
+
+        await client.post(
+            f"/api/runs/{run_id}/confirm",
+            json={"decision": "rewrite", "instruction": "Make it much shorter"},
+        )
+        await state.orchestrator.wait(run_id)
+
+        run = (await client.get(f"/api/runs/{run_id}")).json()
+        attempts_after = len((await client.get(f"/api/runs/{run_id}/attempts")).json())
+
+    # A rewrite costs a synthesis call and nothing else: no new attempts, no
+    # new tool calls, and it parks again for review rather than auto-delivering.
+    assert attempts_after == attempts_before
+    assert run["usage"]["tool_calls"] == searches_before
+    assert run["pending_gate"]["kind"] == "confirm_report"
+    assert run["pending_gate"]["payload"]["revised"] is True
 
 
 async def test_confirming_with_an_edited_question_uses_the_edit() -> None:

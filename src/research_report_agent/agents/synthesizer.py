@@ -116,6 +116,7 @@ class Synthesizer:
         goal: str,
         results: list[WorkerResult],
         dimensions: list[str] | None = None,
+        revision_instruction: str | None = None,
     ) -> ReportDocument:
         findings, sources = self._merge_evidence(results)
         if not findings or not sources:
@@ -124,7 +125,14 @@ class Synthesizer:
         citation_map = {f"[{i}]": source.source_id for i, source in enumerate(sources, start=1)}
         draft = await self.llm.complete_structured(
             system=_SYSTEM,
-            user=self._prompt(goal, findings, sources, citation_map, dimensions or []),
+            user=self._prompt(
+                goal,
+                findings,
+                sources,
+                citation_map,
+                dimensions or [],
+                revision_instruction,
+            ),
             schema=_ReportDraft,
         )
 
@@ -178,6 +186,7 @@ class Synthesizer:
         sources: list[Source],
         citation_map: dict[str, str],
         dimensions: list[str],
+        revision_instruction: str | None = None,
     ) -> str:
         source_lines = "\n".join(
             f"{label}: {source.title} — {source.publisher} ({source.url})"
@@ -193,8 +202,18 @@ class Synthesizer:
             if dimensions
             else ""
         )
+        revision_line = (
+            "The reader has already seen a draft built from exactly these findings and "
+            f"asked for this change: {revision_instruction}\n"
+            "Rewrite the report accordingly. You have no new evidence -- work only with "
+            "the findings below, and say so in limitations if the request cannot be met "
+            "from them.\n\n"
+            if revision_instruction
+            else ""
+        )
         return (
             f"Research goal: {goal}\n\n"
+            f"{revision_line}"
             f"{dimension_line}"
             f"Sources:\n{source_lines}\n\n"
             f"Accepted findings:\n{finding_lines}"
