@@ -67,7 +67,7 @@ export default function ChatComposer({
     // before layout settles, and a bad measurement would stick until the next
     // keystroke.
     if (!el.value) return;
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
   }
 
   function send() {
@@ -81,15 +81,8 @@ export default function ChatComposer({
   return (
     <div className="composer">
       <div className="composer-focus">
-        <div className="focus-head">
-          <span className="focus-eyebrow">Focus</span>
-          <span className="focus-optional">optional</span>
-          <span className={`focus-counter ${atLimit ? "at-limit" : ""}`}>
-            {atLimit
-              ? `${MAX_DIMENSIONS} of ${MAX_DIMENSIONS} — deselect one to swap`
-              : `${selected.length} of ${MAX_DIMENSIONS}`}
-          </span>
-        </div>
+        <span className="focus-eyebrow">Focus</span>
+        <span className="focus-rule" aria-hidden="true" />
         <div className="composer-dimensions">
         {DIMENSIONS.map((dimension) => {
           const active = selected.includes(dimension);
@@ -151,6 +144,9 @@ export default function ChatComposer({
             />
           )}
         </div>
+        <span className={`focus-counter ${atLimit ? "at-limit" : ""}`}>
+          {atLimit ? `${MAX_DIMENSIONS} of ${MAX_DIMENSIONS} — deselect to swap` : `${selected.length} of ${MAX_DIMENSIONS}`}
+        </span>
       </div>
 
       <div className="composer-input-row">

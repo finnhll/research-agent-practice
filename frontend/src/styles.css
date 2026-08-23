@@ -5,80 +5,98 @@
    sits inside the machine. Serif = what the agent wrote,
    sans = what you operate, mono = what the machine measured. */
 :root {
-  --shell: #eef0f4;
-  --shell-2: #e4e7ed;
-  --shell-3: #dadee6;
-  --paper: #fcfbf9;
-  --paper-2: #f5f3ef;
-  --ink: #14181f;
-  --ink-2: #454c59;
-  --ink-3: #6e7684;
-  --line: #d6dae2;
-  --line-soft: #e7eaf0;
-  --line-paper: #e5e1da;
-  --accent: #1f3a6e;
-  --accent-2: #2f5fa8;
-  --accent-soft: #e6ecf7;
+  --shell: #eceef3;
+  --shell-2: #e2e5ec;
+  --shell-3: #d7dbe4;
+  --paper: #fbfaf6;
+  --paper-2: #f4f2ec;
+  --ink: #16181d;
+  --ink-2: #434a57;
+  --ink-3: #6c7482;
+  --line: #d4d8e1;
+  --line-soft: #e6e8ef;
+  --line-paper: #e6e1d6;
+  --accent: #37459b;
+  --accent-2: #4f60c4;
+  --accent-soft: #e7eaf8;
   --on-accent: #ffffff;
   --ok: #3f7355;
-  --ok-soft: #e4eee7;
-  --warn: #8a5d12;
-  --warn-soft: #f6eedc;
-  --crit: #a33a2a;
-  --crit-soft: #f7e7e3;
+  --ok-soft: #e3eee7;
+  --warn: #96620f;
+  --warn-soft: #f7eeda;
+  --crit: #a63a29;
+  --crit-soft: #f8e6e2;
+  --stage-verify: #2f6f6a;
+  --stage-verify-soft: #e0eeec;
+  --stage-work: #37459b;
+  --stage-work-soft: #e7eaf8;
+  --stage-make: #8a5a12;
+  --stage-make-soft: #f6eddb;
   --shadow: 0 1px 2px rgba(20, 24, 31, 0.05), 0 8px 24px -12px rgba(20, 24, 31, 0.18);
   --radius: 7px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --shell: #101318;
-    --shell-2: #171b21;
-    --shell-3: #1e232b;
-    --paper: #1a1e25;
-    --paper-2: #20252d;
-    --ink: #e7e9ed;
-    --ink-2: #a8aeba;
-    --ink-3: #7a8290;
-    --line: #2a303a;
-    --line-soft: #21262e;
-    --line-paper: #2c323c;
-    --accent: #86adec;
-    --accent-2: #a3c2f2;
-    --accent-soft: #1b2434;
-    --on-accent: #101318;
+    --shell: #0f1115;
+    --shell-2: #161920;
+    --shell-3: #1e222b;
+    --paper: #191c23;
+    --paper-2: #1f232b;
+    --ink: #e8eaef;
+    --ink-2: #a9b0bd;
+    --ink-3: #7b8391;
+    --line: #2a2f3a;
+    --line-soft: #21252d;
+    --line-paper: #2c313b;
+    --accent: #8fa2ef;
+    --accent-2: #aab8f5;
+    --accent-soft: #1c2138;
+    --on-accent: #0f1115;
     --ok: #6fae87;
-    --ok-soft: #182a20;
-    --warn: #d3a34e;
-    --warn-soft: #2b2416;
-    --crit: #e08272;
-    --crit-soft: #301d1a;
+    --ok-soft: #172a20;
+    --warn: #d8a54f;
+    --warn-soft: #2c2416;
+    --crit: #e28374;
+    --crit-soft: #31201c;
+    --stage-verify: #5fb3aa;
+    --stage-verify-soft: #152a28;
+    --stage-work: #8fa2ef;
+    --stage-work-soft: #1c2138;
+    --stage-make: #d4a24f;
+    --stage-make-soft: #2c2416;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
 :root[data-theme="dark"] {
-  --shell: #101318;
-  --shell-2: #171b21;
-  --shell-3: #1e232b;
-  --paper: #1a1e25;
-  --paper-2: #20252d;
-  --ink: #e7e9ed;
-  --ink-2: #a8aeba;
-  --ink-3: #7a8290;
-  --line: #2a303a;
-  --line-soft: #21262e;
-  --line-paper: #2c323c;
-  --accent: #86adec;
-  --accent-2: #a3c2f2;
-  --accent-soft: #1b2434;
-  --on-accent: #101318;
+  --shell: #0f1115;
+  --shell-2: #161920;
+  --shell-3: #1e222b;
+  --paper: #191c23;
+  --paper-2: #1f232b;
+  --ink: #e8eaef;
+  --ink-2: #a9b0bd;
+  --ink-3: #7b8391;
+  --line: #2a2f3a;
+  --line-soft: #21252d;
+  --line-paper: #2c313b;
+  --accent: #8fa2ef;
+  --accent-2: #aab8f5;
+  --accent-soft: #1c2138;
+  --on-accent: #0f1115;
   --ok: #6fae87;
-  --ok-soft: #182a20;
-  --warn: #d3a34e;
-  --warn-soft: #2b2416;
-  --crit: #e08272;
-  --crit-soft: #301d1a;
+  --ok-soft: #172a20;
+  --warn: #d8a54f;
+  --warn-soft: #2c2416;
+  --crit: #e28374;
+  --crit-soft: #31201c;
+  --stage-verify: #5fb3aa;
+  --stage-verify-soft: #152a28;
+  --stage-work: #8fa2ef;
+  --stage-work-soft: #1c2138;
+  --stage-make: #d4a24f;
+  --stage-make-soft: #2c2416;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
 }
 
@@ -945,6 +963,51 @@ a {
   color: var(--accent);
 }
 
+
+/* Stage hues encode the KIND of work, not just position: the first two stages
+   verify and structure, the middle two gather and judge, the last produces the
+   artifact. Three hues rather than five -- five would be a rainbow, and the
+   grouping is the information. */
+.stage[data-h="verify"] {
+  --stage: var(--stage-verify);
+  --stage-soft: var(--stage-verify-soft);
+}
+
+.stage[data-h="work"] {
+  --stage: var(--stage-work);
+  --stage-soft: var(--stage-work-soft);
+}
+
+.stage[data-h="make"] {
+  --stage: var(--stage-make);
+  --stage-soft: var(--stage-make-soft);
+}
+
+.stage[data-st="done"] .tick {
+  background: var(--stage);
+  border-color: var(--stage);
+}
+
+.stage[data-st="now"] .tick,
+.stage[data-st="paused"] .tick {
+  border-color: var(--stage);
+}
+
+.stage[data-st="now"] .tick::after,
+.stage[data-st="paused"] .tick::after {
+  background: var(--stage);
+}
+
+.stage[data-st="now"] .stage-sub,
+.stage[data-st="paused"] .stage-sub {
+  color: var(--stage);
+}
+
+.stage[data-st="now"],
+.stage[data-st="paused"] {
+  background: var(--stage-soft);
+}
+
 .workers {
   padding: 4px 0;
 }
@@ -1395,17 +1458,23 @@ a {
 /* Focus block: metadata on its own line so the chip row stays one tidy row.
    Keeping the label inline with the chips was what pushed "+ Add focus" onto
    an orphan second line. */
+/* One row: label, rule, chips, counter. The label was on its own line when the
+   composer was 612px wide and could not fit them together; at full width it
+   can, and a single row reads as one control rather than two. */
 .composer-focus {
-  padding: 11px 14px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--line-soft);
   background: var(--paper-2);
 }
 
-.focus-head {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin-bottom: 9px;
+.focus-rule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+  flex: none;
 }
 
 .focus-eyebrow {
@@ -1416,13 +1485,8 @@ a {
   color: var(--ink-2);
 }
 
-.focus-optional {
-  font-size: 11px;
-  color: var(--ink-3);
-}
-
 .focus-counter {
-  margin-left: auto;
+  flex: none;
   font-size: 11px;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
@@ -1437,6 +1501,8 @@ a {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .chip {
@@ -1514,8 +1580,8 @@ a {
   font-size: 15px;
   line-height: 1.55;
   padding: 6px 0;
-  min-height: 36px;
-  max-height: 220px;
+  min-height: 108px;
+  max-height: 320px;
 }
 
 .composer-input:focus {

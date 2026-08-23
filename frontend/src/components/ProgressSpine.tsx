@@ -1,6 +1,15 @@
 import type { Run, TaskRecord, WorkerAttempt } from "../types";
 import { STAGES, isRepairPhase, stageStates } from "../lib/phases";
 
+/** verify -> gather -> produce. See the stage hue rules in styles.css. */
+const STAGE_HUE: Record<string, string> = {
+  check: "verify",
+  plan: "verify",
+  research: "work",
+  review: "work",
+  write: "make",
+};
+
 function stageSubtitle(
   stageId: string,
   run: Run,
@@ -63,7 +72,7 @@ export default function ProgressSpine({
         {STAGES.map((stage) => {
           const state = states[stage.id];
           return (
-            <li className="stage" data-st={state} key={stage.id}>
+            <li className="stage" data-st={state} data-h={STAGE_HUE[stage.id]} key={stage.id}>
               <div className="stage-top">
                 <span className="tick" aria-hidden="true" />
                 <span className="stage-name">{stage.label}</span>

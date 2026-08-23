@@ -122,7 +122,7 @@ describe("App", () => {
 
     expect(screen.getByRole("button", { name: "tradeoffs" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /add focus/i })).toBeDisabled();
-    expect(screen.getByText(/2 of 2 — deselect one to swap/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 of 2 — deselect to swap/i)).toBeInTheDocument();
   });
 
   it("lets the user swap a dimension once at the limit", async () => {
